@@ -6,6 +6,8 @@ const coinsmax = 120
 const lobbytheme = 3
 const rarity_normal = 0.8 //0.8
 const rarity_legendary = 0.995 //0.995
+
+// configurations
    
 const express = require("express");
 const { MongoClient, ServerApiVersion } = require("mongodb");
