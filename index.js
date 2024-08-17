@@ -1614,7 +1614,12 @@ function determineRewards(rarityType, unownedItems, ownedItems) {
         rewards.message = `Du hast eine Raritätsbox gekauft und erhältst ${rewards.coins[0]} Coins als Belohnung.`;
     } else if (rarityType < rarity_legendary) {
         //rewards.coins = [getRandomCoinsReward(), getRandomCoinsReward()];
-        rewards.items = getRandomItems(unownedItems, 2).map(item => item.id);
+       if (unownedItems && unownedItems.length >= 2) {
+    rewards.items = getRandomItems(unownedItems, 2).map(item => item.id);
+} else {
+    // If unownedItems is undefined or has less than 2 items, assign coins instead
+    rewards.coins = [getRandomCoinsReward(), getRandomCoinsReward()];
+}
         rewards.rarity = "rare";
         rewards.message = `Du hast eine Raritätsbox gekauft und erhältst ${rewards.coins} Coins als Belohnung.`;
     } else {
