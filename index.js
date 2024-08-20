@@ -629,7 +629,7 @@ const user = await userCollection.findOne(
     );
  
     const itemshop1 = "dailyItems";
-const itemshop = await shopcollection.findOne({ _id: itemshop1 }, { projection: { 'items.itemId': 1 }}
+const itemshop = await shopcollection.findOne({ _id: itemshop1 }, { projection: { 'items': 1 }}
 );
 
 
