@@ -629,7 +629,8 @@ const user = await userCollection.findOne(
     );
  
     const itemshop1 = "dailyItems";
-const selectedItem = await shopcollection.findOne({ _id: itemshop1 }, { projection: { 'items.itemId': 1 } });
+const selectedItem = await shopcollection.findOne({ _id: itemshop1 }, { projection: { 'items.itemId': 1 }}
+);
 
     //  const selectedItem = Object.values(itemshop.items).find(i => i.itemId === itemId);
 
