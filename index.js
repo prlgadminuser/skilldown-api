@@ -633,7 +633,7 @@ const itemshop = await shopcollection.findOne({ _id: itemshop1 }, { projection: 
 );
 
 
-    const selectedItem = itemshop.some(item => item.itemId === itemId);
+    const selectedItem = Object.values(itemshop).find(i => i.itemId === itemId);
    // const selectedItem = Object.values(itemshop.items).find(i => i.itemId === itemId);
 
     if (!selectedItem) {
