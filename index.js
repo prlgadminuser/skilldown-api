@@ -628,13 +628,11 @@ const user = await userCollection.findOne(
       },
     );
  
-    const itemshop1 = "dailyItems";
-const itemshop = await shopcollection.findOne({ _id: itemshop1 }, { projection: { 'items': 1 }}
+
+    const itemshop = await shopcollection.findOne({ _id: dailyItems });
+
 );
-
-
-    const selectedItem = Object.values(itemshop).find(i => i.itemId === itemId);
-   // const selectedItem = Object.values(itemshop.items).find(i => i.itemId === itemId);
+   const selectedItem = Object.values(itemshop.items).find(i => i.itemId === itemId);
 
     if (!selectedItem) {
       return res.status(401).json({ message: "Item is not valid." });
