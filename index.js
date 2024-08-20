@@ -2616,7 +2616,7 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
 
 async function watchItemShop() {
   try {
-    //  await client.connect();
+    await client.connect();
 
     const documentId = "dailyItems"; // Ensure this matches the actual ID type
 
