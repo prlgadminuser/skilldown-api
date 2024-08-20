@@ -6,6 +6,7 @@ const coinsmax = 120
 const lobbytheme = 2
 const rarity_normal = 0.8 //0.8
 const rarity_legendary = 0.995 //0.995
+const allgadgets = 3
 
 // configurations
    
@@ -664,6 +665,39 @@ const user = await userCollection.findOne(
     if (session) {
       session.endSession();
     }
+  }
+});
+
+
+app.post("/equip-gadget/:token/:gadget", checkRequestSize, verifyToken, async (req, res) => {
+  const { gadget } = req.params;
+  const username = req.user.username;
+
+  if (!gadget >= 1 && gadget <= allgadgets) {
+    return res
+      .status(400)
+      .json({ message: "invalid id" });
+  }
+
+  try {
+    const result = await userCollection.updateOne(
+      { username },
+      { $set: { equipped_gadget: gadget } },
+    );
+
+    if (result.modifiedCount === 1) {
+      res.json({
+        message: `success`,
+        gadget: gadget,
+      });
+    } else {
+      res.status(500).json({ message: "Failed to update gadget." });
+    }
+  } catch (error) {
+    console.error("Error:", error);
+    res
+      .status(500)
+      .json({ message: "Internal Server Error while equipping" });
   }
 });
 
