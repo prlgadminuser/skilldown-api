@@ -1029,6 +1029,7 @@ app.get("/get-user-inventory/:token", checkRequestSize, verifyToken, async (req,
             equipped_hat_color: 1,
             equipped_body_color: 1,
             equipped_banner_color: 1,
+            equipped_gadget: 1,
           }
         }
       ),
@@ -1084,6 +1085,7 @@ app.get("/get-user-inventory/:token", checkRequestSize, verifyToken, async (req,
       equipped_hat_color: userRow.equipped_hat_color || 0,
       equipped_body_color: userRow.equipped_body_color || 0,
       equipped_banner_color: userRow.equipped_banner_color || 0,
+      equipped_gadget: userRow.equipped_gadget || 1,
       server_timestamp: currentTimestampInGMT,
       server_nexttime: currentTimestamp0am,
       lbtheme: lobbytheme, // Assuming lobbytheme is defined elsewhere
