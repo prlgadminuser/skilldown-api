@@ -673,11 +673,11 @@ app.post("/equip-gadget/:token/:gadget", checkRequestSize, verifyToken, async (r
   const { gadget } = req.params;
   const username = req.user.username;
 
-  if (!gadget >= 1 && gadget <= allgadgets) {
-    return res
-      .status(400)
-      .json({ message: "invalid id" });
+ const gadgetNumber = parseInt(gadget, 10);
+  if (isNaN(gadgetNumber) || gadgetNumber < 1 || gadgetNumber > allgadgets) {
+    return res.status(400).json({ message: "Invalid gadget ID." });
   }
+
 
   try {
     const result = await userCollection.updateOne(
