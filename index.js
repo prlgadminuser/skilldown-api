@@ -630,8 +630,7 @@ const user = await userCollection.findOne(
  
 
     const itemshop = await shopcollection.findOne({ _id: dailyItems });
-
-);
+     
    const selectedItem = Object.values(itemshop.items).find(i => i.itemId === itemId);
 
     if (!selectedItem) {
