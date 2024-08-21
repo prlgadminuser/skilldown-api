@@ -7,6 +7,7 @@ const lobbytheme = 2
 const rarity_normal = 0.8 //0.8
 const rarity_legendary = 0.995 //0.995
 const allgadgets = 3
+const friendMax = 30
 
 // configurations
    
@@ -2068,10 +2069,6 @@ app.get("/compare-items/:username", async (req, res) => {
   }
 });
 
-
-
-
-const friendMax = 30;
 
 
 /*app.post("/send-friend-request/:token/:friendUsername", checkRequestSize, verifyToken, async (req, res) => {
