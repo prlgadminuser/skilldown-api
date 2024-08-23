@@ -635,6 +635,14 @@ const user = await userCollection.findOne(
      
    const selectedItem = Object.values(itemshop.items).find(i => i.itemId === itemId);
 
+        const doublecheck = await shopcollection.findOne(
+      { _id: "dailyItems", items: { $elemMatch: { $eq: itemid } } }
+    );
+
+     if (!doublecheck) {
+  return res.status(401).json({ message: "Item is not valid 3434." });
+}
+
     if (!selectedItem) {
       return res.status(401).json({ message: "Item is not valid." });
       }
