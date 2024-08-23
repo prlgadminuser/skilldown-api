@@ -1055,7 +1055,8 @@ app.get("/get-user-inventory/:token", checkRequestSize, verifyToken, async (req,
     ]);
 
     if (!userRow) {
-      return res.status(401).json({ message: "login expired" });
+    //  return res.status(401).json({ message: "login expired" });
+         res.status(401).send("Unauthorized");
     }
 
     const currentTimestampInGMT = new Date().getTime();
