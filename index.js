@@ -398,7 +398,7 @@ app.post("/register", checkRequestSize, registerLimiter, async (req, res) => {
       res
         .status(400)
         .send(
-          "Invalid username. It should be 3-20 characters long and may contain letters, numbers, underscores, and hyphens.",
+          "Invalid username",
         );
       return;
     }
@@ -407,7 +407,7 @@ app.post("/register", checkRequestSize, registerLimiter, async (req, res) => {
       res
         .status(400)
         .send(
-          "Invalid password. It should be at least 8 characters long, contain at least one digit, one lowercase letter, one uppercase letter, and one special character.",
+          "Invalid password",
         );
       return;
     }
@@ -1056,7 +1056,7 @@ app.get("/get-user-inventory/:token", checkRequestSize, verifyToken, async (req,
 
     if (!userRow) {
     //  return res.status(401).json({ message: "login expired" });
-         res.status(401).send("Unauthorized");
+         res.status(401).send("expired");
     }
 
     const currentTimestampInGMT = new Date().getTime();
@@ -1130,7 +1130,7 @@ app.get("/get-matchstats/:token", checkRequestSize, verifyToken, async (req, res
     ]);
 
     if (!userRow) {
-      return res.status(401).json({ message: "Ungültige Anmeldeinformationen." });
+      return res.status(401).json({ message: "invalid token" });
     }
 
     const currentDate = new Date();
@@ -1150,7 +1150,7 @@ app.get("/get-matchstats/:token", checkRequestSize, verifyToken, async (req, res
     res.json(response);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Interner Serverfehler." });
+    res.status(500).json({ message: "server error" });
   }
 });
 
@@ -1183,7 +1183,7 @@ app.get("/user-profile/:token/:usernamed", checkRequestSize, verifyToken, async 
     );
 
     if (!userRow) {
-      return res.status(404).json({ message: "Benutzer nicht gefunden." });
+      return res.status(404).json({ message: "user not found" });
     }
 
     const joinedTimestamp = userRow.created_at.getTime();
@@ -1651,7 +1651,7 @@ function determineRewards(rarityType, unownedItems, ownedItems) {
         rewards.coins = [getRandomCoinsReward(), getRandomCoinsReward()];
         rewards.items = [];
         rewards.rarity = "normal";
-        rewards.message = `Du hast eine Raritätsbox gekauft und erhältst ${rewards.coins[0]} Coins als Belohnung.`;
+        rewards.message = `success`;
     } else if (rarityType < rarity_legendary) {
         //rewards.coins = [getRandomCoinsReward(), getRandomCoinsReward()];
        if (unownedItems && unownedItems.length >= 2) {
@@ -1661,7 +1661,7 @@ function determineRewards(rarityType, unownedItems, ownedItems) {
     rewards.coins = [getRandomCoinsReward(), getRandomCoinsReward()];
 }
         rewards.rarity = "rare";
-        rewards.message = `Du hast eine Raritätsbox gekauft und erhältst ${rewards.coins} Coins als Belohnung.`;
+        rewards.message = `success`;
     } else {
         rewards = handleLegendaryRewards(ownedItems);
     }
@@ -1739,7 +1739,7 @@ function handleLegendaryRewards(ownedItems) {
         rewards.coins = [getRandomCoinsReward2(), getRandomCoinsReward2()];
         rewards.items = [];
         rewards.rarity = "legendary";
-        rewards.message = `Du hast eine Raritätsbox gekauft und erhältst ${rewards.coins[0]} Coins als Belohnung.`;
+        rewards.message = `success`;
      return rewards;
   } else {
     return {
