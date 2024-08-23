@@ -1055,7 +1055,7 @@ app.get("/get-user-inventory/:token", checkRequestSize, verifyToken, async (req,
     ]);
 
     if (!userRow) {
-      return res.status(401).json({ message: "Ungültige Anmeldeinformationen." });
+      return res.status(401).json({ message: "login expired" });
     }
 
     const currentTimestampInGMT = new Date().getTime();
