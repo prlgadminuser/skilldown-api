@@ -1436,6 +1436,15 @@ app.get("/global-place/:token", checkRequestSize, verifyToken, async (req, res) 
 
   try {
 
+      const userInformation = await userCollection.findOne(
+      { username },
+      { projection: { sp: 1 } }
+    );
+
+    if (!userInformation) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
     const userCoinsEarned = req.user.sp || 0;
 
     const place = await userCollection.countDocuments({
