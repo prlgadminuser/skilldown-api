@@ -1431,12 +1431,10 @@ app.get("/total-coins", checkRequestSize, async (req, res) => {
 
 
 app.get("/global-place/:token", checkRequestSize, verifyToken, async (req, res) => {
-  const token = req.params.token;
   const username = req.user.username;
 
   try {
-
-      const userInformation = await userCollection.findOne(
+    const userInformation = await userCollection.findOne(
       { username },
       { projection: { sp: 1 } }
     );
@@ -1445,17 +1443,18 @@ app.get("/global-place/:token", checkRequestSize, verifyToken, async (req, res) 
       return res.status(404).json({ error: "User not found" });
     }
 
-    const userCoinsEarned = userInformation.sp || 0;
+    const userSp = userInformation.sp || 0;
 
+    // Count how many users have more sp than the current user
     const place = await userCollection.countDocuments({
-      username: username,
-      sp: { $gte: userCoinsEarned },
+      sp: { $gt: userSp },
     });
 
-    res.json({ place });
+    // Add 1 to the count to get the correct place (because the user is one of those in the ranking)
+    res.json({ place: place + 1 });
   } catch (error) {
-    console.error("Interner Serverfehler:", error);
-    res.status(500).json({ message: "Interner Serverfehler." });
+    console.error("Internal server error:", error);
+    res.status(500).json({ message: "Internal server error." });
   }
 });
 
