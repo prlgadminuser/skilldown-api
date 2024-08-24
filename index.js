@@ -1445,7 +1445,7 @@ app.get("/global-place/:token", checkRequestSize, verifyToken, async (req, res) 
       return res.status(404).json({ error: "User not found" });
     }
 
-    const userCoinsEarned = req.user.sp || 0;
+    const userCoinsEarned = userInformation.sp || 0;
 
     const place = await userCollection.countDocuments({
       username: username,
