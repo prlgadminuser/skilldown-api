@@ -1426,11 +1426,11 @@ app.get("/total-coins", checkRequestSize, async (req, res) => {
   }
 });
 
+*/
 
 
 
-
-/*app.get("/global-place/:token", checkRequestSize, verifyToken, async (req, res) => {
+app.get("/global-place/:token", checkRequestSize, verifyToken, async (req, res) => {
   const token = req.params.token;
   const username = req.user.username;
 
@@ -1450,7 +1450,7 @@ app.get("/total-coins", checkRequestSize, async (req, res) => {
   }
 });
 
-*/
+
 
 // Helper function to respond with an error
 function respondWithError(res, errorMessage) {
