@@ -1472,8 +1472,19 @@ async function verifyToken(req, res, next) {
   try {
     const decodedToken = jwt.verify(token, tokenkey);
 
+    // Check if the user exists in the database
+    const user = await userCollection.findOne(
+      { _id: decodedToken.username },
+      { projection: { username: 1, token: 1 } }
+    );
+
+    if (!user) {
+      res.status(401).send("Invalid token");
+      return;
+    }
+
     // Attach the user information to the request for later use
-    req.user = decodedToken;
+    req.user = user.username;
     next();
   } catch (err) {
     res.status(403).send("Invalid token");
