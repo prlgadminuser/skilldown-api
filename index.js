@@ -1055,8 +1055,7 @@ app.get("/get-user-inventory/:token", checkRequestSize, verifyToken, async (req,
     ]);
 
     if (!userRow) {
-    //  return res.status(401).json({ message: "login expired" });
-         res.status(401).send("expired");
+       return res.status(401).send("expired");
     }
 
     const currentTimestampInGMT = new Date().getTime();
@@ -1097,7 +1096,9 @@ app.get("/get-user-inventory/:token", checkRequestSize, verifyToken, async (req,
     res.json(response);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Interner Serverfehler." });
+    if (!res.headersSent) {
+      res.status(500).json({ message: "Internal Server Error." });
+    }
   }
 });
 
