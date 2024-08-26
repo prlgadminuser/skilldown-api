@@ -173,7 +173,7 @@ app.use((req, res, next) => {
 });
 
 //app.use(compression());
-app.use(checkRequestSize);
+//app.use(checkRequestSize);
 app.use(noexploit);
 app.use(limiter);
 app.set("trust proxy", true);
@@ -1546,9 +1546,7 @@ async function checkRequestSize(req, res, next) {
        req.params1 = mongoSanitize(req.params);
         req.query1 = mongoSanitize(req.query);
         req.body1 = mongoSanitize(req.body);
-
-       console.log(req.params);
-
+       
         // Check if sanitized inputs are valid
         if (!req.params1 || !req.query1 || !req.body1) {
             return res.status(400).send("Unauthorized ss");
