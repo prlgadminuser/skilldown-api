@@ -8,6 +8,7 @@ const rarity_normal = 0.8 //0.8
 const rarity_legendary = 0.995 //0.995
 const allgadgets = 3
 const friendMax = 30
+const maxaccountlimit = 2
 
 // configurations
    
@@ -130,7 +131,7 @@ const registerLimiter = rateLimit({
 
 const accountCreationLimit = rateLimit({
   windowMs: 24 * 60 * 60 * 1000, // 24 hours
-  max: 1, // Max 1 request per IP per day
+  max: maxaccountlimit, // Max 1 request per IP per day
   keyGenerator: function(req) { return req.headers['true-client-ip'] || req.headers['x-forwarded-for'] },
   message: "Sie haben bereits die maximale Anzahl von Benutzerkonten für heute erstellt.",
 });
