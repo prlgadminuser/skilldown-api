@@ -363,7 +363,7 @@ async function startServer() {
     );
 
     if (result) {
-      const maintenanceStatus = result.maintenanceStatus;
+      const maintenanceStatus = result.status;
 
       if (maintenanceStatus === "true") {
         maintenanceMode = true;
