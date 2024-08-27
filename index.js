@@ -2730,9 +2730,9 @@ async function watchItemShop() {
         eventEmitter.emit('shopUpdate', { update: "shopupdate", timestamp });
         console.log("Daily items updated.");
       } else if (documentId === maintenanceId) {
-        const maintenanceStatus = change.fullDocument.status; // Adjust field name as needed
+        const maintenanceStatus = change.fullDocument.status // Adjust field name as needed
 
-        if (maintenanceStatus === true) {
+        if (maintenanceStatus === "true") {
           // Emit an event for maintenance updates only if status is false
           eventEmitter.emit('maintenanceUpdate', { update: "maintenanceupdate", timestamp });
 
