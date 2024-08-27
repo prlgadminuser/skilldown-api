@@ -668,7 +668,6 @@ const user = await userCollection.findOne(
       { session }
     );
   }
-}
 
     res.json({ message: `Du hast ${selectedItem.name} gekauft.` });
   } catch (error) {
