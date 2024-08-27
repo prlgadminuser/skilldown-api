@@ -2630,6 +2630,11 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
     resetInactivityTimeout();
   };
 
+    const onMaintenanceUpdate = (data) => {
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+    resetInactivityTimeout();
+  };
+
   const onFriendRequestSent = (data) => {
     if (data.to === username) {
       const timestamp = new Date().toISOString();
@@ -2651,6 +2656,7 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
     inactivityTimeout = setTimeout(() => {
       eventEmitter.removeListener('friendRequestSent', onFriendRequestSent);
       eventEmitter.removeListener('shopUpdate', onShopUpdate);
+       eventEmitter.removeListener('maintenanceUpdate', onMaintenanceUpdate);
       res.end();
     }, 5 * 60 * 1000); // 5 minutes
   };
@@ -2661,17 +2667,19 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
   // Register event listeners
   eventEmitter.on('friendRequestSent', onFriendRequestSent);
   eventEmitter.on('shopUpdate', onShopUpdate);
+  eventEmitter.on('maintenanceUpdate', onMaintenanceUpdate);
 
   // Cleanup on client disconnect
   req.on('close', () => {
     clearTimeout(inactivityTimeout);
     eventEmitter.removeListener('friendRequestSent', onFriendRequestSent);
     eventEmitter.removeListener('shopUpdate', onShopUpdate);
+   eventEmitter.removeListener('maintenanceUpdate', onMaintenanceUpdate);
     res.end();
   });
 });
 
-async function watchItemShop() {
+/*async function watchItemShop() {
   try {
     const documentId = "dailyItems"; // Ensure this matches the actual ID type
 
@@ -2695,6 +2703,50 @@ async function watchItemShop() {
     console.error('Error setting up Change Stream:', error);
   }
 }
+
+*/
+
+async function watchItemShop() {
+  try {
+    // Define the document IDs to watch
+    const dailyItemsId = "dailyItems";
+    const maintenanceId = "maintenance";
+
+    // Create a Change Stream pipeline to match changes for both document IDs
+    const pipeline = [
+      { $match: { $or: [{ 'fullDocument._id': dailyItemsId }, { 'fullDocument._id': maintenanceId }] } }
+    ];
+
+    // Watch the collection with the defined pipeline
+    const changeStream = shopcollection.watch(pipeline, { fullDocument: 'updateLookup' });
+
+    // Handle changes detected by the Change Stream
+    changeStream.on('change', (change) => {
+      const timestamp = new Date().toISOString();
+      const documentId = change.fullDocument._id;
+
+      if (documentId === dailyItemsId) {
+        // Emit an event for daily items updates
+        eventEmitter.emit('shopUpdate', { update: "shopupdate", timestamp });
+        console.log("Daily items updated.");
+      } else if (documentId === maintenanceId) {
+        const maintenanceStatus = change.fullDocument.status; // Adjust field name as needed
+
+        if (maintenanceStatus === true) {
+          // Emit an event for maintenance updates only if status is false
+          eventEmitter.emit('maintenanceUpdate', { update: "maintenanceupdate", timestamp });
+        } else {
+        }
+      } else {
+        console.log("Unexpected document ID:", documentId);
+      }
+    });
+
+  } catch (error) {
+    console.error('Error setting up Change Stream:', error);
+  }
+}
+
 
  
 
