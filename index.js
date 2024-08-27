@@ -272,12 +272,34 @@ process.on("SIGINT", function () {
 });
 
 
-
 let maintenanceMode = false;
+ const maintenanceId = "maintenance"; // The ID of the maintenance document
+
+    // Find the maintenanceStatus directly from the document
+    const result = await shopcollection.findOne(
+      { _id: maintenanceId },
+      { projection: { status: 1 } } // Only retrieve the maintenanceStatus field
+    );
+
+    if (result) {
+      const maintenanceStatus = result.maintenanceStatus;
+
+      if (maintenanceStatus === true) {
+        maintenanceMode = true;
+      } else {
+       maintenanceMode = false;
+      }
+    } else {
+      console.log("Maintenance document not found.");
+    }
+
+
+
+
 // Middleware, um Wartungsarbeiten zu überprüfen
 function checkMaintenanceMode(req, res, next) {
   if (maintenanceMode) {
-    return res.status(503).send("Wartung");
+    return res.status(503).send("maintenance");
   }
   next();
 }
@@ -2734,11 +2756,14 @@ async function watchItemShop() {
 
         if (maintenanceStatus === "true") {
           // Emit an event for maintenance updates only if status is false
+             maintenanceMode = true;
           eventEmitter.emit('maintenanceUpdate', { update: "maintenanceupdate", timestamp });
-
-           console.log("send")
+                                                 
         } else {
-            console.log(change.fullDocument.status)
+            if (maintenanceStatus === "false") {
+          // Emit an event for maintenance updates only if status is false
+             maintenanceMode = false;                                                 
+        } 
         }
       } else {
         console.log("Unexpected document ID:", documentId);
