@@ -365,7 +365,7 @@ async function startServer() {
     if (result) {
       const maintenanceStatus = result.maintenanceStatus;
 
-      if (maintenanceStatus === true) {
+      if (maintenanceStatus === "true") {
         maintenanceMode = true;
       } else {
        maintenanceMode = false;
