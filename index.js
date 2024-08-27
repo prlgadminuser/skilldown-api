@@ -2657,6 +2657,7 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
     const onMaintenanceUpdate = (data) => {
     res.write(`data: ${JSON.stringify(data)}\n\n`);
     resetInactivityTimeout();
+    eventEmitter.removeAllListeners();
   };
 
   const onFriendRequestSent = (data) => {
