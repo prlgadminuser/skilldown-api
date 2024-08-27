@@ -371,6 +371,7 @@ async function startServer() {
        maintenanceMode = false;
       }
     } else {
+          maintenanceMode = true;
       console.log("Maintenance document not found.");
     }
 
