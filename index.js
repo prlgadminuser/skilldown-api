@@ -1,8 +1,8 @@
 
 
 const gift_dev_msg = "Gift from Liquem Games. Have fun!";
-const coinsmin = 80
-const coinsmax = 120
+const coinsmin = 20
+const coinsmax = 35
 const lobbytheme = 1
 const rarity_normal = 0.8 //0.8
 const rarity_legendary = 0.995 //0.995
