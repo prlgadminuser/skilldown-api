@@ -2709,7 +2709,7 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
   // Cleanup on client disconnect
   req.on('close', () => {
     clearTimeout(inactivityTimeout);
-    eventEmitter.removeListener();
+    //eventEmitter.removeListener();
        removeUserListeners();
     res.end();
   });
