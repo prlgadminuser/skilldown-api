@@ -2649,6 +2649,14 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
 
   let inactivityTimeout;
 
+    const removeUserListeners = () => {
+    eventEmitter.removeListener(`friendRequestSent:${username}`, onFriendRequestSent);
+    eventEmitter.removeListener(`shopUpdate:${username}`, onShopUpdate);
+    eventEmitter.removeListener(`maintenanceUpdate:${username}`, onMaintenanceUpdate);
+  };
+
+     removeUserListeners();
+
   const onShopUpdate = (data) => {
     res.write(`data: ${JSON.stringify(data)}\n\n`);
     resetInactivityTimeout();
@@ -2680,6 +2688,7 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
     }
     inactivityTimeout = setTimeout(() => {
       eventEmitter.removeListener();
+       removeUserListeners();
       res.end();
     }, 5 * 60 * 1000); // 5 minutes
   };
@@ -2688,14 +2697,19 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
   resetInactivityTimeout();
 
   // Register event listeners
-  eventEmitter.on('friendRequestSent', onFriendRequestSent);
-  eventEmitter.on('shopUpdate', onShopUpdate);
-  eventEmitter.on('maintenanceUpdate', onMaintenanceUpdate);
+  //eventEmitter.on('friendRequestSent', onFriendRequestSent);
+ // eventEmitter.on('shopUpdate', onShopUpdate);
+ // eventEmitter.on('maintenanceUpdate', onMaintenanceUpdate);
+
+    eventEmitter.on(`friendRequestSent:${username}`, onFriendRequestSent);
+  eventEmitter.on(`shopUpdate:${username}`, onShopUpdate);
+  eventEmitter.on(`maintenanceUpdate:${username}`, onMaintenanceUpdate);
 
   // Cleanup on client disconnect
   req.on('close', () => {
     clearTimeout(inactivityTimeout);
-   eventEmitter.removeListener();
+    eventEmitter.removeListener();
+       removeUserListeners();
     res.end();
   });
 });
