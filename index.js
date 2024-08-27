@@ -367,7 +367,7 @@ const friendsCollection = db.collection("friends");
 const PackItemsCollection = db.collection("packitems");
 const battlePassCollection = db.collection("battlepass_users");
 const loginRewardsCollection = db.collection("onetime_rewards");
-const shopcollection = db.collection("ShopCollection");
+const shopcollection = db.collection("serverconfig");
 
 
 const usernameRegex = /^(?!.*(&[a-zA-Z0-9]+;|<|>|\/|\\|\s)).{4,16}$/u;
