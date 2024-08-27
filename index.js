@@ -272,28 +272,6 @@ process.on("SIGINT", function () {
 });
 
 
-let maintenanceMode = false;
- const maintenanceId = "maintenance"; // The ID of the maintenance document
-
-    // Find the maintenanceStatus directly from the document
-    const result = await shopcollection.findOne(
-      { _id: maintenanceId },
-      { projection: { status: 1 } } // Only retrieve the maintenanceStatus field
-    );
-
-    if (result) {
-      const maintenanceStatus = result.maintenanceStatus;
-
-      if (maintenanceStatus === true) {
-        maintenanceMode = true;
-      } else {
-       maintenanceMode = false;
-      }
-    } else {
-      console.log("Maintenance document not found.");
-    }
-
-
 
 
 // Middleware, um Wartungsarbeiten zu überprüfen
@@ -364,6 +342,8 @@ const client = new MongoClient(uri, {
   },
 });
 
+   let maintenanceMode = false;
+
 async function startServer() {
   try {
     // Connect to the MongoDB server
@@ -372,6 +352,27 @@ async function startServer() {
     console.log("Connected to MongoDB");
 
        watchItemShop();
+
+  
+ const maintenanceId = "maintenance"; // The ID of the maintenance document
+
+    // Find the maintenanceStatus directly from the document
+    const result = await shopcollection.findOne(
+      { _id: maintenanceId },
+      { projection: { status: 1 } } // Only retrieve the maintenanceStatus field
+    );
+
+    if (result) {
+      const maintenanceStatus = result.maintenanceStatus;
+
+      if (maintenanceStatus === true) {
+        maintenanceMode = true;
+      } else {
+       maintenanceMode = false;
+      }
+    } else {
+      console.log("Maintenance document not found.");
+    }
 
     // Start the express server
    
