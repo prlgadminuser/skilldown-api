@@ -2735,7 +2735,10 @@ async function watchItemShop() {
         if (maintenanceStatus === true) {
           // Emit an event for maintenance updates only if status is false
           eventEmitter.emit('maintenanceUpdate', { update: "maintenanceupdate", timestamp });
+
+           console.log("send")
         } else {
+            console.log(change.fullDocument.status)
         }
       } else {
         console.log("Unexpected document ID:", documentId);
