@@ -349,6 +349,8 @@ async function startServer() {
   
     console.log("Connected to MongoDB");
 
+       watchItemShop();
+
     // Start the express server
    
   } catch (err) {
@@ -2671,8 +2673,6 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
 
 async function watchItemShop() {
   try {
-    await client.connect();
-
     const documentId = "dailyItems"; // Ensure this matches the actual ID type
 
     // Create a Change Stream with a pipeline to match changes for the specific document ID
@@ -2696,7 +2696,7 @@ async function watchItemShop() {
   }
 }
 
-   watchItemShop();
+ 
 
 
 
