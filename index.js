@@ -2649,13 +2649,6 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
 
   let inactivityTimeout;
 
-    const removeUserListeners = () => {
-    eventEmitter.removeListener(`friendRequestSent:${username}`, onFriendRequestSent);
-    eventEmitter.removeListener(`shopUpdate:${username}`, onShopUpdate);
-    eventEmitter.removeListener(`maintenanceUpdate:${username}`, onMaintenanceUpdate);
-  };
-
-     removeUserListeners();
 
   const onShopUpdate = (data) => {
     res.write(`data: ${JSON.stringify(data)}\n\n`);
@@ -2681,6 +2674,14 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
       resetInactivityTimeout();
     }
   };
+
+    const removeUserListeners = () => {
+    eventEmitter.removeListener(`friendRequestSent:${username}`, onFriendRequestSent);
+    eventEmitter.removeListener(`shopUpdate:${username}`, onShopUpdate);
+    eventEmitter.removeListener(`maintenanceUpdate:${username}`, onMaintenanceUpdate);
+  };
+     removeUserListeners();
+
 
   const resetInactivityTimeout = () => {
     if (inactivityTimeout) {
