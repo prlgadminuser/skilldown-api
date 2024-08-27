@@ -2649,14 +2649,13 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
 
   let inactivityTimeout;
 
-
   const onShopUpdate = (data) => {
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
+    res.write(data: ${JSON.stringify(data)}\n\n);
     resetInactivityTimeout();
   };
 
     const onMaintenanceUpdate = (data) => {
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
+    res.write(data: ${JSON.stringify(data)}\n\n);
     resetInactivityTimeout();
     eventEmitter.removeAllListeners();
   };
@@ -2670,18 +2669,10 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
         eventData.type = data.type;
       }
 
-      res.write(`data: ${JSON.stringify(eventData)}\n\n`);
+      res.write(data: ${JSON.stringify(eventData)}\n\n);
       resetInactivityTimeout();
     }
   };
-
-    const removeUserListeners = () => {
-    eventEmitter.removeListener(`friendRequestSent:${username}`, onFriendRequestSent);
-    eventEmitter.removeListener(`shopUpdate:${username}`, onShopUpdate);
-    eventEmitter.removeListener(`maintenanceUpdate:${username}`, onMaintenanceUpdate);
-  };
-     removeUserListeners();
-
 
   const resetInactivityTimeout = () => {
     if (inactivityTimeout) {
@@ -2689,7 +2680,6 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
     }
     inactivityTimeout = setTimeout(() => {
       eventEmitter.removeListener();
-       removeUserListeners();
       res.end();
     }, 5 * 60 * 1000); // 5 minutes
   };
@@ -2698,23 +2688,17 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
   resetInactivityTimeout();
 
   // Register event listeners
-  //eventEmitter.on('friendRequestSent', onFriendRequestSent);
- // eventEmitter.on('shopUpdate', onShopUpdate);
- // eventEmitter.on('maintenanceUpdate', onMaintenanceUpdate);
-
-    eventEmitter.on(`friendRequestSent:${username}`, onFriendRequestSent);
-  eventEmitter.on(`shopUpdate:${username}`, onShopUpdate);
-  eventEmitter.on(`maintenanceUpdate:${username}`, onMaintenanceUpdate);
+  eventEmitter.on('friendRequestSent', onFriendRequestSent);
+  eventEmitter.on('shopUpdate', onShopUpdate);
+  eventEmitter.on('maintenanceUpdate', onMaintenanceUpdate);
 
   // Cleanup on client disconnect
   req.on('close', () => {
     clearTimeout(inactivityTimeout);
-    //eventEmitter.removeListener();
-       removeUserListeners();
+   eventEmitter.removeListener();
     res.end();
   });
 });
-
 /*async function watchItemShop() {
   try {
     const documentId = "dailyItems"; // Ensure this matches the actual ID type
