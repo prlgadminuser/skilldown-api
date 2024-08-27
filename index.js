@@ -650,14 +650,25 @@ const user = await userCollection.findOne(
     await session.commitTransaction();
 
     // Update the user's coins and add the purchased item to the items array
+     if (selectedItem.price > 0) {
     await userCollection.updateOne(
       { username },
       {
         $inc: { coins: -selectedItem.price },
         $push: { items: itemId },
       },
-      { session },
+      { session }
     );
+  } else {
+    await userCollection.updateOne(
+      { username },
+      {
+        $push: { items: itemId },
+      },
+      { session }
+    );
+  }
+}
 
     res.json({ message: `Du hast ${selectedItem.name} gekauft.` });
   } catch (error) {
