@@ -2677,9 +2677,7 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
       clearTimeout(inactivityTimeout);
     }
     inactivityTimeout = setTimeout(() => {
-      eventEmitter.removeListener('friendRequestSent', onFriendRequestSent);
-      eventEmitter.removeListener('shopUpdate', onShopUpdate);
-       eventEmitter.removeListener('maintenanceUpdate', onMaintenanceUpdate);
+      eventEmitter.removeListener();
       res.end();
     }, 5 * 60 * 1000); // 5 minutes
   };
@@ -2695,9 +2693,7 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
   // Cleanup on client disconnect
   req.on('close', () => {
     clearTimeout(inactivityTimeout);
-    eventEmitter.removeListener('friendRequestSent', onFriendRequestSent);
-    eventEmitter.removeListener('shopUpdate', onShopUpdate);
-   eventEmitter.removeListener('maintenanceUpdate', onMaintenanceUpdate);
+   eventEmitter.removeListener();
     res.end();
   });
 });
