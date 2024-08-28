@@ -2650,12 +2650,12 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
   let inactivityTimeout;
 
   const onShopUpdate = (data) => {
-    res.write(data: ${JSON.stringify(data)}\n\n);
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
     resetInactivityTimeout();
   };
 
     const onMaintenanceUpdate = (data) => {
-    res.write(data: ${JSON.stringify(data)}\n\n);
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
     resetInactivityTimeout();
     eventEmitter.removeAllListeners();
   };
@@ -2669,7 +2669,7 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
         eventData.type = data.type;
       }
 
-      res.write(data: ${JSON.stringify(eventData)}\n\n);
+      res.write(`data: ${JSON.stringify(eventData)}\n\n`);
       resetInactivityTimeout();
     }
   };
