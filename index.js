@@ -2643,7 +2643,7 @@ let activeConnections = {};
 
 app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
   const username = req.user.username;
-  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const ip = req.headers['true-client-ip'] || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
   // Use a unique key combining the username and IP address
   const connectionKey = `${username}_${ip}`;
