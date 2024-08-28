@@ -3,12 +3,12 @@
 const gift_dev_msg = "Gift from Liquem Games. Have fun!";
 const coinsmin = 20
 const coinsmax = 35
-const lobbytheme = 1
+const lobbytheme = 3
 const rarity_normal = 0.8 //0.8
 const rarity_legendary = 0.995 //0.995
 const allgadgets = 3
 const friendMax = 30
-const maxaccountlimit = 2
+const maxaccountlimit = 1
 
 // configurations
    
