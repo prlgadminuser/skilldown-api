@@ -2637,8 +2637,19 @@ app.get("/get-friends/:token", checkRequestSize, verifyToken, async (req, res) =
 });
 
 eventEmitter.setMaxListeners(50);
+
+
+let activeConnections = {};
+
 app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
   const username = req.user.username;
+
+     if (activeConnections[username]) {
+    activeConnections[username].end();
+  }
+
+  // Track the new connection
+  activeConnections[username] = res;
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -2681,6 +2692,7 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
     inactivityTimeout = setTimeout(() => {
       eventEmitter.removeListener();
       res.end();
+       delete activeConnections[username];
     }, 5 * 60 * 1000); // 5 minutes
   };
 
@@ -2696,6 +2708,7 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
   req.on('close', () => {
     clearTimeout(inactivityTimeout);
    eventEmitter.removeListener();
+         delete activeConnections[username];
     res.end();
   });
 });
