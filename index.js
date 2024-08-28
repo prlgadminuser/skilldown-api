@@ -2690,7 +2690,6 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
       clearTimeout(inactivityTimeout);
     }
     inactivityTimeout = setTimeout(() => {
-      eventEmitter.removeListener();
       res.end();
        delete activeConnections[username];
     }, 5 * 60 * 1000); // 5 minutes
@@ -2707,8 +2706,7 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
   // Cleanup on client disconnect
   req.on('close', () => {
     clearTimeout(inactivityTimeout);
-   eventEmitter.removeListener();
-         delete activeConnections[username];
+    delete activeConnections[username];
     res.end();
   });
 });
