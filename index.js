@@ -2643,13 +2643,18 @@ let activeConnections = {};
 
 app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
   const username = req.user.username;
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
-     if (activeConnections[username]) {
-    activeConnections[username].end();
+  // Use a unique key combining the username and IP address
+  const connectionKey = `${username}_${ip}`;
+
+  // End any existing connection for this user and IP
+  if (activeConnections[connectionKey]) {
+    activeConnections[connectionKey].end();
   }
 
   // Track the new connection
-  activeConnections[username] = res;
+  activeConnections[connectionKey] = res;
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -2665,7 +2670,7 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
     resetInactivityTimeout();
   };
 
-    const onMaintenanceUpdate = (data) => {
+  const onMaintenanceUpdate = (data) => {
     res.write(`data: ${JSON.stringify(data)}\n\n`);
     resetInactivityTimeout();
     eventEmitter.removeAllListeners();
@@ -2691,7 +2696,7 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
     }
     inactivityTimeout = setTimeout(() => {
       res.end();
-       delete activeConnections[username];
+      delete activeConnections[connectionKey];
     }, 5 * 60 * 1000); // 5 minutes
   };
 
@@ -2706,7 +2711,7 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
   // Cleanup on client disconnect
   req.on('close', () => {
     clearTimeout(inactivityTimeout);
-    delete activeConnections[username];
+    delete activeConnections[connectionKey];
     res.end();
   });
 });
