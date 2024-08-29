@@ -41,7 +41,8 @@ const loginreward = [
 
 
 // configurations
-   
+
+
 const express = require("express");
 const { MongoClient, ServerApiVersion } = require("mongodb");
 const bcrypt = require("bcrypt");
@@ -62,6 +63,7 @@ const mongoSanitize = require('express-mongo-sanitize');
 const http = require('http');
 const compression = require('compression');
 const crypto = require('crypto');
+const argon2 = require('argon2');
 
 
 const webhookURL = process.env.DISCORD_KEY;
