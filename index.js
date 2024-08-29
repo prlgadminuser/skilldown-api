@@ -8,10 +8,9 @@ const rarity_normal = 0.8 //0.8
 const rarity_legendary = 0.995 //0.995
 const allgadgets = 3
 const friendMax = 30
-const maxaccountlimit = 4
+const maxaccountlimit = 1
 
 
-const maxbattlepasstier = 10
 const loginrewardactive = true
 
 
@@ -31,6 +30,8 @@ const battlePassTiers = [
 
   // ... continue defining tiers up to tier 10
 ];
+
+const maxbattlepasstier = Math.max(...battlePassTiers.map(tier => tier.tier));
 
 const loginreward = [
  { reward: { items: ["I015"], coins: 500, boxes: 8 } },
