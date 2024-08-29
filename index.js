@@ -2669,6 +2669,22 @@ eventEmitter.setMaxListeners(50);
 // Track connections
 const activeConnections = new Map(); 
 
+
+const resetInactivityTimeout = (key) => {
+  if (activeConnections.has(key)) {
+    const connection = activeConnections.get(key);
+    if (connection.inactivityTimeout) {
+      clearTimeout(connection.inactivityTimeout);
+    }
+    connection.inactivityTimeout = setTimeout(() => {
+      const conn = activeConnections.get(key);
+      if (conn) {
+        conn.res.end();
+        activeConnections.delete(key);
+      }
+    }, 5 * 60 * 1000); // 5 minutes
+  }
+};
 // Define event listeners
 const globalListeners = {
   friendRequestSent: (data) => {
