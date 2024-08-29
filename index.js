@@ -1108,6 +1108,8 @@ app.get("/get-user-inventory/:token", checkRequestSize, verifyToken, async (req,
           }
         }
       ).catch(() => null),
+
+      if (loginrewardactive) {
       loginRewardsCollection.findOne(
         { username },
         {
@@ -1117,6 +1119,7 @@ app.get("/get-user-inventory/:token", checkRequestSize, verifyToken, async (req,
         }
       ).catch(() => null)
     ]);
+    }
 
     if (!userRow) {
        return res.status(401).send("expired");
