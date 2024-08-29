@@ -2666,26 +2666,9 @@ app.get("/get-friends/:token", checkRequestSize, verifyToken, async (req, res) =
  
 eventEmitter.setMaxListeners(50);
 
-// Track connections
-const activeConnections = new Map(); 
+const activeConnections = new Map();
 
-
-const resetInactivityTimeout = (key) => {
-  if (activeConnections.has(key)) {
-    const connection = activeConnections.get(key);
-    if (connection.inactivityTimeout) {
-      clearTimeout(connection.inactivityTimeout);
-    }
-    connection.inactivityTimeout = setTimeout(() => {
-      const conn = activeConnections.get(key);
-      if (conn) {
-        conn.res.end();
-        activeConnections.delete(key);
-      }
-    }, 5 * 60 * 1000); // 5 minutes
-  }
-};
-// Define event listeners
+// Define global event listeners
 const globalListeners = {
   friendRequestSent: (data) => {
     activeConnections.forEach((connection, key) => {
@@ -2695,7 +2678,6 @@ const globalListeners = {
         if (connection.res && typeof connection.res.write === 'function') {
           connection.res.write(`data: ${JSON.stringify(eventData)}\n\n`);
           console.log('Emitted friendRequestSent to:', key);
-          resetInactivityTimeout(key);
         }
       }
     });
@@ -2705,7 +2687,6 @@ const globalListeners = {
     activeConnections.forEach((connection, key) => {
       if (connection.res && typeof connection.res.write === 'function') {
         connection.res.write(`data: ${JSON.stringify(data)}\n\n`);
-        resetInactivityTimeout(key);
       }
     });
   },
@@ -2714,7 +2695,6 @@ const globalListeners = {
     activeConnections.forEach((connection, key) => {
       if (connection.res && typeof connection.res.write === 'function') {
         connection.res.write(`data: ${JSON.stringify(data)}\n\n`);
-        resetInactivityTimeout(key);
       }
     });
     eventEmitter.removeAllListeners(); // Clean up listeners globally
@@ -2732,6 +2712,7 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
 
   const connectionKey = `${username}_${ip}`;
 
+  // End any existing connection for this user and IP
   if (activeConnections.has(connectionKey)) {
     activeConnections.get(connectionKey).res.end();
   }
@@ -2748,27 +2729,8 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
 
   res.write('data: connected\n\n');
 
-  let inactivityTimeout;
-
-  const resetInactivityTimeout = (key) => {
-    if (inactivityTimeout) {
-      clearTimeout(inactivityTimeout);
-    }
-    inactivityTimeout = setTimeout(() => {
-      const connection = activeConnections.get(key);
-      if (connection) {
-        connection.res.end();
-        activeConnections.delete(key);
-      }
-    }, 5 * 60 * 1000); // 5 minutes
-  };
-
-  // Set initial inactivity timeout
-  resetInactivityTimeout(connectionKey);
-
   // Cleanup on client disconnect
   req.on('close', () => {
-    clearTimeout(inactivityTimeout);
     activeConnections.delete(connectionKey);
     res.end();
   });
