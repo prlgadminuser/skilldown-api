@@ -1070,13 +1070,12 @@ app.post("/reset-equipped-items/:token", checkRequestSize, verifyToken, async (r
 });
 
 app.get("/get-user-inventory/:token", checkRequestSize, verifyToken, async (req, res) => {
-
-
   const token = req.params.token;
   const username = req.user.username;
 
   try {
-    const [userRow, bpuserRow, onetimeRow] = await Promise.all([
+    // Initialize promises array with mandatory queries
+    const promises = [
       userCollection.findOne(
         { username },
         {
@@ -1107,9 +1106,11 @@ app.get("/get-user-inventory/:token", checkRequestSize, verifyToken, async (req,
             bonusitem_damage: 1,
           }
         }
-      ).catch(() => null),
+      ).catch(() => null) // Handle errors and continue
+    ];
 
-       if (loginrewardactive) {
+    // Conditionally add loginRewardsCollection query
+    if (loginrewardactive) {
       promises.push(
         loginRewardsCollection.findOne(
           { username },
@@ -1118,39 +1119,46 @@ app.get("/get-user-inventory/:token", checkRequestSize, verifyToken, async (req,
               username: 1
             }
           }
-        ).catch(() => null)
+        ).catch(() => null) // Handle errors and continue
       );
     } else {
-      // Add a resolved promise to maintain consistency
+      // Add a resolved promise to maintain array consistency
       promises.push(Promise.resolve(null));
     }
 
     // Wait for all promises to resolve
     const [userRow, bpuserRow, onetimeRow] = await Promise.all(promises);
 
+    // Check if the userRow exists
     if (!userRow) {
-       return res.status(401).send("expired");
+      return res.status(401).send("expired");
     }
 
+    // Get current timestamps
     const currentTimestampInGMT = new Date().getTime();
-
     const currentDate = new Date();
     currentDate.setHours(0, 0, 0, 0);
     const currentTimestamp0am = currentDate.getTime();
 
-    const onetimereward = loginrewardactive ? onetimeRow ? onetimeRow.username || 0 : 0 : 4; // onetimeRow ? onetimeRow.username || 0 : 0;
+    // Determine onetime reward
+    const onetimereward = loginrewardactive 
+      ? (onetimeRow ? onetimeRow.username || 0 : 0) 
+      : 4;
+
+    // Extract values with defaults
     const slpasstier = bpuserRow ? bpuserRow.currentTier || 0 : 0;
     const season_coins = bpuserRow ? bpuserRow.season_coins || 0 : 0;
     const bonusitem_damage = bpuserRow ? bpuserRow.bonusitem_damage || 0 : 0;
 
+    // Create response object
     const response = {
       coins: userRow.coins || 0,
       boxes: userRow.boxes || 0,
       sp: userRow.sp || 0,
       items: userRow.items || [], 
-      slpasstier: slpasstier || 0,
-      season_coins: season_coins || 0,
-      bonusitem_damage: bonusitem_damage || 0,
+      slpasstier,
+      season_coins,
+      bonusitem_damage,
       last_collected: userRow.last_collected || 0,
       equipped_item: userRow.equipped_item || 0,
       equipped_item2: userRow.equipped_item2 || 0,
@@ -1163,18 +1171,20 @@ app.get("/get-user-inventory/:token", checkRequestSize, verifyToken, async (req,
       equipped_gadget: userRow.equipped_gadget || 1,
       server_timestamp: currentTimestampInGMT,
       server_nexttime: currentTimestamp0am,
-      lbtheme: lobbytheme, // Assuming lobbytheme is defined elsewhere
-      onetimereward: onetimereward,
+      lbtheme: lobbytheme, // Ensure lobbytheme is defined elsewhere
+      onetimereward
     };
 
+    // Send JSON response
     res.json(response);
   } catch (error) {
-    console.error(error);
+    console.error('Error fetching user inventory:', error);
     if (!res.headersSent) {
-      res.status(500).json({ message: "error" });
+      res.status(500).json({ message: "An error occurred while fetching user inventory." });
     }
   }
 });
+
 
 
 app.get("/get-matchstats/:token", checkRequestSize, verifyToken, async (req, res) => {
