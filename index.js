@@ -12,7 +12,7 @@ const maxaccountlimit = 1
 
 
 const maxbattlepasstier = 10
-const loginrewardactive = false
+const loginrewardactive = true
 
 
 const battlePassTiers = [
