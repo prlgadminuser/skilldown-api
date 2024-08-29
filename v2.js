@@ -1,13 +1,44 @@
 
 
 const gift_dev_msg = "Gift from Liquem Games. Have fun!";
-const coinsmin = 80
-const coinsmax = 120
+const coinsmin = 20
+const coinsmax = 35
 const lobbytheme = 3
 const rarity_normal = 0.8 //0.8
 const rarity_legendary = 0.995 //0.995
 const allgadgets = 3
 const friendMax = 30
+const maxaccountlimit = 1
+
+
+const maxbattlepasstier = 10
+const loginrewardactive = true
+
+
+const battlePassTiers = [
+  { tier: 0, price: 0, reward: { coins: 0 } },
+
+  { tier: 1, price: 0, reward: { boxes: 2 } },
+  { tier: 2, price: 50, reward: { coins: 150 } },
+  { tier: 3, price: 50, reward: { items: ["P009"] } },
+  { tier: 4, price: 50, reward: { coins: 200 } },
+  { tier: 5, price: 50, reward: { boxes: 5 } },
+  { tier: 6, price: 50, reward: { coins: 250 } },
+  { tier: 7, price: 50, reward: { items: ["I016"] } },
+  { tier: 8, price: 50, reward: { coins: 300 } },
+  { tier: 9, price: 50, reward: { coins: 400 } },
+  { tier: 10, price: 50, reward: { boxes: 10, items: ["A037", "B028"] } },
+
+  // ... continue defining tiers up to tier 10
+];
+
+const loginreward = [
+ { reward: { items: ["I015"], coins: 500, boxes: 8 } },
+ //  { reward: { items: ["I011"] } },
+  // { reward: { coins: 1000, items: ["A032", "B023"] } },
+];
+
+
 
 // configurations
    
@@ -30,10 +61,12 @@ const EventEmitter = require('events');
 const mongoSanitize = require('express-mongo-sanitize');
 const http = require('http');
 const compression = require('compression');
+const crypto = require('crypto');
 
 
 const webhookURL = process.env.DISCORD_KEY;
 const tokenkey = process.env.TOKEN_KEY;
+const cryptoKey = process.env.TOKEN_KEY;
 
 const eventEmitter = new EventEmitter();
 
@@ -130,7 +163,7 @@ const registerLimiter = rateLimit({
 
 const accountCreationLimit = rateLimit({
   windowMs: 24 * 60 * 60 * 1000, // 24 hours
-  max: 1, // Max 1 request per IP per day
+  max: maxaccountlimit, // Max 1 request per IP per day
   keyGenerator: function(req) { return req.headers['true-client-ip'] || req.headers['x-forwarded-for'] },
   message: "Sie haben bereits die maximale Anzahl von Benutzerkonten für heute erstellt.",
 });
@@ -172,6 +205,7 @@ app.use((req, res, next) => {
 });
 
 //app.use(compression());
+//app.use(checkRequestSize);
 app.use(noexploit);
 app.use(limiter);
 app.set("trust proxy", true);
@@ -271,11 +305,11 @@ process.on("SIGINT", function () {
 
 
 
-let maintenanceMode = false;
+
 // Middleware, um Wartungsarbeiten zu überprüfen
 function checkMaintenanceMode(req, res, next) {
   if (maintenanceMode) {
-    return res.status(503).send("Wartung");
+    return res.status(503).send("maintenance");
   }
   next();
 }
@@ -340,12 +374,38 @@ const client = new MongoClient(uri, {
   },
 });
 
+   let maintenanceMode = false;
+
 async function startServer() {
   try {
     // Connect to the MongoDB server
     await client.connect();
   
     console.log("Connected to MongoDB");
+
+       watchItemShop();
+
+  
+ const maintenanceId = "maintenance"; // The ID of the maintenance document
+
+    // Find the maintenanceStatus directly from the document
+    const result = await shopcollection.findOne(
+      { _id: maintenanceId },
+      { projection: { status: 1 } } // Only retrieve the maintenanceStatus field
+    );
+
+    if (result) {
+      const maintenanceStatus = result.status;
+
+      if (maintenanceStatus === "true") {
+        maintenanceMode = true;
+      } else {
+       maintenanceMode = false;
+      }
+    } else {
+          maintenanceMode = true;
+      console.log("Maintenance document not found.");
+    }
 
     // Start the express server
    
@@ -363,7 +423,7 @@ const friendsCollection = db.collection("friends");
 const PackItemsCollection = db.collection("packitems");
 const battlePassCollection = db.collection("battlepass_users");
 const loginRewardsCollection = db.collection("onetime_rewards");
-const shopcollection = db.collection("ShopCollection");
+const shopcollection = db.collection("serverconfig");
 
 
 const usernameRegex = /^(?!.*(&[a-zA-Z0-9]+;|<|>|\/|\\|\s)).{4,16}$/u;
@@ -378,6 +438,18 @@ const applyAccountCreationLimit = (req, res, next) => {
   accountCreationLimit(req, res, next);
 };
 
+const hashPassword = (password) => {
+  const salt = crypto.randomBytes(16).toString('hex'); // Generate a new salt
+  const hashedPassword = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512', cryptoKey).toString('hex');
+  return { salt, hashedPassword };
+};
+
+// Utility function to verify passwords
+const verifyPassword = (password, salt, hashedPassword) => {
+  const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512', cryptoKey).toString('hex');
+  return hash === hashedPassword;
+};
+
 app.post("/register", checkRequestSize, registerLimiter, async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -388,31 +460,22 @@ app.post("/register", checkRequestSize, registerLimiter, async (req, res) => {
       return;
     }
 
-   if (username === password) {
-      res.status(400).send("identical types");
+    if (username === password) {
+      res.status(400).send("Username and password cannot be identical");
       return;
     }
-     
 
     if (!usernameRegex.test(username)) {
-      res
-        .status(400)
-        .send(
-          "Invalid username",
-        );
+      res.status(400).send("Invalid username");
       return;
     }
 
     if (!passwordRegex.test(password)) {
-      res
-        .status(400)
-        .send(
-          "Invalid password",
-        );
+      res.status(400).send("Invalid password");
       return;
     }
 
-     const existingUser = await userCollection.findOne(
+    const existingUser = await userCollection.findOne(
       { username: { $regex: new RegExp(`^${username}$`, "i") } },
       { projection: { _id: 0, username: 1 } },
     );
@@ -431,27 +494,23 @@ app.post("/register", checkRequestSize, registerLimiter, async (req, res) => {
     }
 
     // Check account creation limit here
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const token = jwt.sign({ username }, tokenkey);
-        const currentTimestamp = new Date();
+    const { salt, hashedPassword } = hashPassword(password);
+    const token = jwt.sign({ username }, tokenkey);
+    const currentTimestamp = new Date();
 
-        applyAccountCreationLimit(req, res, async () => {
-
-           try {
-
+    applyAccountCreationLimit(req, res, async () => {
+      try {
         await userCollection.insertOne({
-          _id: username,
           username,
           password: hashedPassword,
+          salt,
           coins: 100,
           created_at: currentTimestamp,
           country_code: finalCountryCode,
           token,
           last_collected: 0,
           items: [],
-
         });
-
 
         const joinedMessage = `${username} joined Skilled Legends.`;
         webhook.send(joinedMessage);
@@ -468,14 +527,15 @@ app.post("/register", checkRequestSize, registerLimiter, async (req, res) => {
   }
 });
 
+
 // Login route
 app.post("/login", checkRequestSize, registerLimiter, async (req, res) => {
   const { username, password } = req.body;
 
   try {
     const user = await userCollection.findOne(
-      { _id: username },
-      { projection: { username: 1, password: 1 } },
+      { username },
+      { projection: { username: 1, password: 1, salt: 1 } }
     );
 
     if (!user) {
@@ -483,9 +543,9 @@ app.post("/login", checkRequestSize, registerLimiter, async (req, res) => {
       return;
     }
 
-    const passwordMatch = await bcrypt.compare(password, user.password);
+    const { password: hashedPassword, salt } = user;
 
-    if (!passwordMatch) {
+    if (!verifyPassword(password, salt, hashedPassword)) {
       res.status(401).send("Invalid username or password");
       return;
     }
@@ -494,13 +554,14 @@ app.post("/login", checkRequestSize, registerLimiter, async (req, res) => {
     const token = jwt.sign({ username: user.username }, tokenkey);
 
     // Save the token to the user document
-    await userCollection.updateOne({ _id: username }, { $set: { token } });
+    await userCollection.updateOne({ username }, { $set: { token } });
 
     res.json({ token });
   } catch (error) {
     res.status(500).send("Internal Server Error");
   }
 });
+
 
 app.get("/get-coins/:token", checkRequestSize, verifyToken, async (req, res) => {
   const token = req.params.token;
@@ -512,7 +573,7 @@ app.get("/get-coins/:token", checkRequestSize, verifyToken, async (req, res) => 
 
     // Check if the user exists in the database
     const user = await userCollection.findOne(
-      { _id: username },
+      { username },
       { projection: { _id: 0, username: 1, last_collected: 1 } },
     );
 
@@ -534,7 +595,7 @@ app.get("/get-coins/:token", checkRequestSize, verifyToken, async (req, res) => 
 
     // Update user data in the database
     const updateResult = await userCollection.updateOne(
-      { _id: username },
+      { username },
       {
         $inc: { coins: coinsToAdd },
         $set: { last_collected: Date.now() },
@@ -543,10 +604,6 @@ app.get("/get-coins/:token", checkRequestSize, verifyToken, async (req, res) => 
 
     await session.commitTransaction();
 
-    if (updateResult.modifiedCount !== 1) {
-      res.status(500).send("Failed to update user data");
-      return;
-    }
 
     // Send a Discord webhook notification
     //const coinsMessage = `${username} has received ${coinsToAdd} Coins.`;
@@ -560,7 +617,7 @@ app.get("/get-coins/:token", checkRequestSize, verifyToken, async (req, res) => 
     });
 
   } catch (error) {
-    res.status(500).send("Internal Server Error");
+    res.status(500).send("error");
     await session.abortTransaction();
   }
 
@@ -590,7 +647,7 @@ app.get("/daily-items/:token", checkRequestSize, verifyToken, async (req, res) =
     });
   } catch (error) {
     console.error("Error fetching daily items:", error);
-    res.status(500).json({ message: "Internal Server Error." });
+    res.status(500).json({ message: "error" });
   }
 });
 
@@ -649,20 +706,30 @@ const user = await userCollection.findOne(
     await session.commitTransaction();
 
     // Update the user's coins and add the purchased item to the items array
+     if (selectedItem.price > 0) {
     await userCollection.updateOne(
-      { _id: username },
+      { username },
       {
         $inc: { coins: -selectedItem.price },
         $push: { items: itemId },
       },
-      { session },
+      { session }
     );
+  } else {
+    await userCollection.updateOne(
+      { username },
+      {
+        $push: { items: itemId },
+      },
+      { session }
+    );
+  }
 
     res.json({ message: `Du hast ${selectedItem.name} gekauft.` });
   } catch (error) {
     await session.abortTransaction();
     console.error("Transaction aborted:", error);
-    res.status(500).json({ message: "Internal Server Error." });
+    res.status(500).json({ message: "error" });
   } finally {
     if (session) {
       session.endSession();
@@ -683,7 +750,7 @@ app.post("/equip-gadget/:token/:gadget", checkRequestSize, verifyToken, async (r
 
   try {
     const result = await userCollection.updateOne(
-      { _id: username },
+      { username },
       { $set: { equipped_gadget: gadget } },
     );
 
@@ -693,13 +760,13 @@ app.post("/equip-gadget/:token/:gadget", checkRequestSize, verifyToken, async (r
         gadget: gadget,
       });
     } else {
-      res.status(500).json({ message: "Failed to update gadget." });
+      res.status(500).json({ message: "failed" });
     }
   } catch (error) {
     console.error("Error:", error);
     res
       .status(500)
-      .json({ message: "Internal Server Error while equipping" });
+      .json({ message: "error" });
   }
 });
 
@@ -719,12 +786,12 @@ app.post("/equip-item1/:token/:itemid", checkRequestSize, verifyToken, async (re
     );
 
     if (!user) {
-      return res.status(404).json({ error: "Ungültige Anmeldeinformationen oder Item nicht gefunden." });
+      return res.status(404).json({ error: "item is not valid" });
     }
 
     // Equip the item by updating the equipped_item field
     await userCollection.updateOne(
-      { _id: username },
+      { username },
       { $set: { equipped_item: itemid } },
     );
 
@@ -732,7 +799,7 @@ app.post("/equip-item1/:token/:itemid", checkRequestSize, verifyToken, async (re
       message: `success`,
     });
   } catch (error) {
-    return res.status(500).json({ error: "Interner Serverfehler." });
+    return res.status(500).json({ error: "error" });
   }
 });
 
@@ -752,12 +819,12 @@ app.post("/equip-item2/:token/:itemid", checkRequestSize, verifyToken, async (re
     );
 
     if (!user) {
-      return res.status(404).json({ error: "Ungültige Anmeldeinformationen oder Item nicht gefunden." });
+      return res.status(404).json({ error: "item is not valid" });
     }
 
     // Equip the item by updating the equipped_item field
     await userCollection.updateOne(
-      { _id: username },
+      { username },
       { $set: { equipped_item2: itemid } },
     );
 
@@ -765,7 +832,7 @@ app.post("/equip-item2/:token/:itemid", checkRequestSize, verifyToken, async (re
       message: `success`,
     });
   } catch (error) {
-    return res.status(500).json({ error: "Interner Serverfehler." });
+    return res.status(500).json({ error: "error" });
   }
 });
 
@@ -785,12 +852,12 @@ app.post("/equip-banner/:token/:itemid", checkRequestSize, verifyToken, async (r
     );
 
     if (!user) {
-      return res.status(404).json({ error: "Ungültige Anmeldeinformationen oder Item nicht gefunden." });
+      return res.status(404).json({ error: "error" });
     }
 
     // Equip the item by updating the equipped_item field
     await userCollection.updateOne(
-      { _id: username },
+      { username },
       { $set: { equipped_banner: itemid } },
     );
 
@@ -798,7 +865,7 @@ app.post("/equip-banner/:token/:itemid", checkRequestSize, verifyToken, async (r
       message: `success`,
     });
   } catch (error) {
-    return res.status(500).json({ error: "Interner Serverfehler." });
+    return res.status(500).json({ error: "error" });
   }
 });
 
@@ -818,12 +885,12 @@ app.post("/equip-pose/:token/:itemid", checkRequestSize, verifyToken, async (req
     );
 
     if (!user) {
-      return res.status(404).json({ error: "Ungültige Anmeldeinformationen oder Item nicht gefunden." });
+      return res.status(404).json({ error: "error" });
     }
 
     // Equip the item by updating the equipped_item field
     await userCollection.updateOne(
-      { _id: username },
+      { username },
       { $set: { equipped_pose: itemid } },
     );
 
@@ -831,7 +898,7 @@ app.post("/equip-pose/:token/:itemid", checkRequestSize, verifyToken, async (req
       message: `success`,
     });
   } catch (error) {
-    return res.status(500).json({ error: "Interner Serverfehler." });
+    return res.status(500).json({ error: "error" });
   }
 });
 
@@ -843,12 +910,12 @@ app.post("/equip-color/:token/:color", checkRequestSize, verifyToken, async (req
   if (isNaN(parsedColor) || parsedColor < -400 || parsedColor > 400) {
     return res
       .status(400)
-      .json({ message: "Color must be a number between -200 and 200." });
+      .json({ message: "error" });
   }
 
   try {
     const result = await userCollection.updateOne(
-      { _id: username },
+      { username },
       { $set: { equipped_color: parsedColor } },
     );
 
@@ -858,13 +925,13 @@ app.post("/equip-color/:token/:color", checkRequestSize, verifyToken, async (req
         equipped_color: parsedColor,
       });
     } else {
-      res.status(500).json({ message: "Failed to update color." });
+      res.status(500).json({ message: "Failed" });
     }
   } catch (error) {
     console.error("Error:", error);
     res
       .status(500)
-      .json({ message: "Internal Server Error while equipping color." });
+      .json({ message: "error" });
   }
 });
 
@@ -876,12 +943,12 @@ app.post("/equip-hat-color/:token/:color", checkRequestSize, verifyToken, async 
   if (isNaN(parsedColor) || parsedColor < -400 || parsedColor > 400) {
     return res
       .status(400)
-      .json({ message: "Color must be a number between -200 and 200." });
+      .json({ message: "failed" });
   }
 
   try {
     const result = await userCollection.updateOne(
-      { _id: username },
+      { username },
       { $set: { equipped_hat_color: parsedColor } },
     );
 
@@ -891,13 +958,13 @@ app.post("/equip-hat-color/:token/:color", checkRequestSize, verifyToken, async 
         equipped_color: parsedColor,
       });
     } else {
-      res.status(500).json({ message: "Failed to update color." });
+      res.status(500).json({ message: "failed" });
     }
   } catch (error) {
     console.error("Error:", error);
     res
       .status(500)
-      .json({ message: "Internal Server Error while equipping color." });
+      .json({ message: "error" });
   }
 });
 
@@ -909,12 +976,12 @@ app.post("/equip-body-color/:token/:color", checkRequestSize, verifyToken, async
   if (isNaN(parsedColor) || parsedColor < -400 || parsedColor > 400) {
     return res
       .status(400)
-      .json({ message: "Color must be a number between -200 and 200." });
+      .json({ message: "failed" });
   }
 
   try {
     const result = await userCollection.updateOne(
-      { _id: username },
+      { username },
       { $set: { equipped_body_color: parsedColor } },
     );
 
@@ -924,13 +991,13 @@ app.post("/equip-body-color/:token/:color", checkRequestSize, verifyToken, async
         equipped_color: parsedColor,
       });
     } else {
-      res.status(500).json({ message: "Failed to update color." });
+      res.status(500).json({ message: "failed" });
     }
   } catch (error) {
     console.error("Error:", error);
     res
       .status(500)
-      .json({ message: "Internal Server Error while equipping color." });
+      .json({ message: "error" });
   }
 });
 
@@ -942,12 +1009,12 @@ app.post("/equip-banner-color/:token/:color", checkRequestSize, verifyToken, asy
   if (isNaN(parsedColor) || parsedColor < -400 || parsedColor > 400) {
     return res
       .status(400)
-      .json({ message: "Color must be a number between -200 and 200." });
+      .json({ message: "failed" });
   }
 
   try {
     const result = await userCollection.updateOne(
-      { _id: username },
+      { username },
       { $set: { equipped_banner_color: parsedColor } },
     );
 
@@ -957,13 +1024,13 @@ app.post("/equip-banner-color/:token/:color", checkRequestSize, verifyToken, asy
         equipped_color: parsedColor,
       });
     } else {
-      res.status(500).json({ message: "Failed to update color." });
+      res.status(500).json({ message: "failed" });
     }
   } catch (error) {
     console.error("Error:", error);
     res
       .status(500)
-      .json({ message: "Internal Server Error while equipping color." });
+      .json({ message: "error" });
   }
 });
 
@@ -974,7 +1041,7 @@ app.post("/reset-equipped-items/:token", checkRequestSize, verifyToken, async (r
 
   try {
     const result = await userCollection.updateOne(
-      { _id: username },
+      { username },
       {
         $set: {
           equipped_item: 0,
@@ -991,31 +1058,30 @@ app.post("/reset-equipped-items/:token", checkRequestSize, verifyToken, async (r
 
     if (result.modifiedCount === 1) {
       res.json({
-        message: "Equipped items have been reset successfully.",
+        message: "successfully.",
       });
     } else {
       res.status(500).json({
-        message: "Failed to reset equipped items. User not found.",
+        message: "failed",
       });
     }
   } catch (error) {
     console.error("Error:", error);
     res.status(500).json({
-      message: "Internal Server Error while resetting equipped items.",
+      message: "error",
     });
   }
 });
 
 app.get("/get-user-inventory/:token", checkRequestSize, verifyToken, async (req, res) => {
-
-
   const token = req.params.token;
   const username = req.user.username;
 
   try {
-    const [userRow, bpuserRow, onetimeRow] = await Promise.all([
+    // Initialize promises array with mandatory queries
+    const promises = [
       userCollection.findOne(
-        { _id: username },
+        { username },
         {
           projection: {
             coins: 1,
@@ -1036,7 +1102,7 @@ app.get("/get-user-inventory/:token", checkRequestSize, verifyToken, async (req,
         }
       ),
       battlePassCollection.findOne(
-        { _id: username },
+        { username },
         {
           projection: {
             currentTier: 1,
@@ -1044,41 +1110,59 @@ app.get("/get-user-inventory/:token", checkRequestSize, verifyToken, async (req,
             bonusitem_damage: 1,
           }
         }
-      ).catch(() => null),
-      loginRewardsCollection.findOne(
-        { _id: username },
-        {
-          projection: {
-            username: 1
-          }
-        }
-      ).catch(() => null)
-    ]);
+      ).catch(() => null) // Handle errors and continue
+    ];
 
-    if (!userRow) {
-    //  return res.status(401).json({ message: "login expired" });
-         res.status(401).send("expired");
+    // Conditionally add loginRewardsCollection query
+    if (loginrewardactive) {
+      promises.push(
+        loginRewardsCollection.findOne(
+          { username },
+          {
+            projection: {
+              username: 1
+            }
+          }
+        ).catch(() => null) // Handle errors and continue
+      );
+    } else {
+      // Add a resolved promise to maintain array consistency
+      promises.push(Promise.resolve(null));
     }
 
-    const currentTimestampInGMT = new Date().getTime();
+    // Wait for all promises to resolve
+    const [userRow, bpuserRow, onetimeRow] = await Promise.all(promises);
 
+    // Check if the userRow exists
+    if (!userRow) {
+      return res.status(401).send("expired");
+    }
+
+    // Get current timestamps
+    const currentTimestampInGMT = new Date().getTime();
     const currentDate = new Date();
     currentDate.setHours(0, 0, 0, 0);
     const currentTimestamp0am = currentDate.getTime();
 
-    const onetimereward = onetimeRow ? onetimeRow.username || 0 : 0;
+    // Determine onetime reward
+    const onetimereward = loginrewardactive 
+      ? (onetimeRow ? onetimeRow.username || 0 : 0) 
+      : 4;
+
+    // Extract values with defaults
     const slpasstier = bpuserRow ? bpuserRow.currentTier || 0 : 0;
     const season_coins = bpuserRow ? bpuserRow.season_coins || 0 : 0;
     const bonusitem_damage = bpuserRow ? bpuserRow.bonusitem_damage || 0 : 0;
 
+    // Create response object
     const response = {
       coins: userRow.coins || 0,
       boxes: userRow.boxes || 0,
       sp: userRow.sp || 0,
       items: userRow.items || [], 
-      slpasstier: slpasstier || 0,
-      season_coins: season_coins || 0,
-      bonusitem_damage: bonusitem_damage || 0,
+      slpasstier,
+      season_coins,
+      bonusitem_damage,
       last_collected: userRow.last_collected || 0,
       equipped_item: userRow.equipped_item || 0,
       equipped_item2: userRow.equipped_item2 || 0,
@@ -1091,16 +1175,20 @@ app.get("/get-user-inventory/:token", checkRequestSize, verifyToken, async (req,
       equipped_gadget: userRow.equipped_gadget || 1,
       server_timestamp: currentTimestampInGMT,
       server_nexttime: currentTimestamp0am,
-      lbtheme: lobbytheme, // Assuming lobbytheme is defined elsewhere
-      onetimereward: onetimereward,
+      lbtheme: lobbytheme, // Ensure lobbytheme is defined elsewhere
+      onetimereward
     };
 
+    // Send JSON response
     res.json(response);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Interner Serverfehler." });
+    console.error('Error fetching user inventory:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ message: "An error occurred while fetching user inventory." });
+    }
   }
 });
+
 
 
 app.get("/get-matchstats/:token", checkRequestSize, verifyToken, async (req, res) => {
@@ -1111,7 +1199,7 @@ app.get("/get-matchstats/:token", checkRequestSize, verifyToken, async (req, res
   try {
     const [userRow, bpuserRow] = await Promise.all([
       userCollection.findOne(
-        { _id: username },
+        { username },
         {
           projection: {
             coins: 1,
@@ -1120,7 +1208,7 @@ app.get("/get-matchstats/:token", checkRequestSize, verifyToken, async (req, res
         }
       ),
       battlePassCollection.findOne(
-        { _id: username },
+        { username },
         {
           projection: {
             season_coins: 1,
@@ -1151,7 +1239,7 @@ app.get("/get-matchstats/:token", checkRequestSize, verifyToken, async (req, res
     res.json(response);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "server error" });
+    res.status(500).json({ message: "error" });
   }
 });
 
@@ -1161,7 +1249,7 @@ app.get("/user-profile/:token/:usernamed", checkRequestSize, verifyToken, async 
 
   try {
     const userRow = await userCollection.findOne(
-      { _id: usernamed },
+      { username: usernamed },
       {
         projection: {
           equipped_item: 1,
@@ -1184,7 +1272,7 @@ app.get("/user-profile/:token/:usernamed", checkRequestSize, verifyToken, async 
     );
 
     if (!userRow) {
-      return res.status(404).json({ message: "user not found" });
+      return res.status(404).json({ message: "failed" });
     }
 
     const joinedTimestamp = userRow.created_at.getTime();
@@ -1225,7 +1313,7 @@ app.get("/user-profile/:token/:usernamed", checkRequestSize, verifyToken, async 
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Interner Serverfehler." });
+    res.status(500).json({ message: "error" });
   }
 });
 
@@ -1279,12 +1367,12 @@ app.get("/verify-token/:token", checkRequestSize, verifyToken, async (req, res) 
 
   try {
     const userInformation = await userCollection.findOne(
-      { _id: username },
+      { username },
       { projection: { username: 1 } }
     );
 
     if (!userInformation) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: "failed" });
     }
 
     res.json({
@@ -1292,7 +1380,7 @@ app.get("/verify-token/:token", checkRequestSize, verifyToken, async (req, res) 
     });
   } catch (error) {
     console.error("Internal Server Error:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    res.status(500).json({ error: "error" });
   }
 });
 
@@ -1301,7 +1389,7 @@ app.get("/verify-gameservertoken/:token", checkRequestSize, verifyToken, async (
 
   try {
     const userInformation = await userCollection.findOne(
-      { _id: username },
+      { username },
       {
         projection: {
           equipped_item: 1,
@@ -1314,7 +1402,7 @@ app.get("/verify-gameservertoken/:token", checkRequestSize, verifyToken, async (
     );
 
     if (!userInformation) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: "failed" });
     }
 
 /*    const activity = await gameActivityCollection.findOne(
@@ -1356,7 +1444,7 @@ app.get("/verify-gameservertoken/:token", checkRequestSize, verifyToken, async (
  */   
   } catch (error) {
     console.error("Internal Server Error:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    res.status(500).json({ error: "error" });
   }
 });
 
@@ -1365,7 +1453,7 @@ app.get("/user-count", checkRequestSize, async (req, res) => {
     const userCount = await db.collection("users").countDocuments();
     res.json({ userCount });
   } catch (err) {
-    res.status(500).json({ message: "Internal Server Error." });
+    res.status(500).json({ message: "error" });
   }
 });
 
@@ -1386,7 +1474,7 @@ app.get("/total-coins", checkRequestSize, async (req, res) => {
     const totalCoins = result.length > 0 ? result[0].totalCoins : 0;
     res.json({ totalCoins });
   } catch (err) {
-    res.status(500).json({ message: "Internal Server Error." });
+    res.status(500).json({ message: "error" });
   }
 });
 
@@ -1427,31 +1515,39 @@ app.get("/total-coins", checkRequestSize, async (req, res) => {
   }
 });
 
+*/
 
 
 
-
-/*app.get("/global-place/:token", checkRequestSize, verifyToken, async (req, res) => {
-  const token = req.params.token;
+app.get("/global-place/:token", checkRequestSize, verifyToken, async (req, res) => {
   const username = req.user.username;
 
   try {
+    const userInformation = await userCollection.findOne(
+      { username },
+      { projection: { sp: 1 } }
+    );
 
-    const userCoinsEarned = req.user.sp || 0;
+    if (!userInformation) {
+      return res.status(404).json({ error: "failed" });
+    }
 
+    const userSp = userInformation.sp || 0;
+
+    // Count how many users have more sp than the current user
     const place = await userCollection.countDocuments({
-      username: username,
-      sp: { $gte: userCoinsEarned },
+      sp: { $gt: userSp },
     });
 
-    res.json({ place });
+    // Add 1 to the count to get the correct place (because the user is one of those in the ranking)
+    res.json({ place: place + 1 });
   } catch (error) {
-    console.error("Interner Serverfehler:", error);
-    res.status(500).json({ message: "Interner Serverfehler." });
+    console.error("Internal server error:", error);
+    res.status(500).json({ message: "error" });
   }
 });
 
-*/
+
 
 // Helper function to respond with an error
 function respondWithError(res, errorMessage) {
@@ -1472,19 +1568,8 @@ async function verifyToken(req, res, next) {
   try {
     const decodedToken = jwt.verify(token, tokenkey);
 
-    // Check if the user exists in the database
-    const user = await userCollection.findOne(
-      { _id: decodedToken.username },
-      { projection: { username: 1, token: 1 } }
-    );
-
-    if (!user) {
-      res.status(401).send("Invalid token");
-      return;
-    }
-
     // Attach the user information to the request for later use
-    req.user = user.username;
+    req.user = decodedToken;
     next();
   } catch (err) {
     res.status(403).send("Invalid token");
@@ -1547,7 +1632,7 @@ async function checkRequestSize(req, res, next) {
        req.params1 = mongoSanitize(req.params);
         req.query1 = mongoSanitize(req.query);
         req.body1 = mongoSanitize(req.body);
-
+       
         // Check if sanitized inputs are valid
         if (!req.params1 || !req.query1 || !req.body1) {
             return res.status(400).send("Unauthorized ss");
@@ -1556,7 +1641,7 @@ async function checkRequestSize(req, res, next) {
         // Check params length
 
       if (JSON.stringify(req.headers).length > 2500) {
-            return res.status(401).send("Unauthorized 1");
+            return res.status(401).send("Unauthorized");
         }
 
       
@@ -1565,13 +1650,13 @@ async function checkRequestSize(req, res, next) {
       continue; // Skip checking the 'token' parameter
       }
       if (req.params[param].length > 50) {
-      return res.status(401).send("Unauthorized 2");
+      return res.status(401).send("Unauthorized");
       }
     }
 
         // Check body length
         if (req.body && JSON.stringify(req.body).length > 100) {
-            return res.status(401).send("Unauthorized 3");
+            return res.status(401).send("Unauthorized");
         }
 
     
@@ -1579,18 +1664,18 @@ async function checkRequestSize(req, res, next) {
         // Check query parameters length
         for (let query in req.query) {
             if (req.query[query].length > 50) {
-                return res.status(401).send("Unauthorized 5");
+                return res.status(401).send("Unauthorized");
             }
         }
 
         // Check specific token length in params if it exists
         if (req.params.token && req.params.token.length > 500) {
-            return res.status(401).send("Unauthorized 4");
+            return res.status(401).send("Unauthorized");
         }
 
         // Check headers (example: checking the length of a custom header)
         if (req.headers['x-custom-header'] && req.headers['x-custom-header'].length > 500) {
-            return res.status(401).send("Unauthorized 6");
+            return res.status(401).send("Unauthorized");
         }
 
         next();
@@ -1614,7 +1699,7 @@ app.post("/buy-rarity-box/:token", checkRequestSize, verifyToken, async (req, re
 
         // Check if user exists
         if (!user) {
-            return res.status(404).json({ error: "User not found" });
+            return res.status(404).json({ error: "error" });
         }
 
         // Check if user has boxes left
@@ -1650,7 +1735,7 @@ app.post("/buy-rarity-box/:token", checkRequestSize, verifyToken, async (req, re
     } catch (error) {
         await abortTransaction(session);
         console.error("Transaction aborted:", error);
-        return res.status(500).json({ message: "Internal Server Error." });
+        return res.status(500).json({ message: "error" });
     } finally {
         endSession(session);
     }
@@ -1690,7 +1775,7 @@ function determineRewards(rarityType, unownedItems, ownedItems) {
 async function updateUserItemsAndCoins(username, rewards, session) {
     if (rewards.rewards.items && rewards.rewards.items.length > 0) {
         await userCollection.updateOne(
-            { _id: username },
+            { username },
             { $addToSet: { items: { $each: rewards.rewards.items } } }, // Use rewards.rewards.items directly
             { session }
         );
@@ -1702,7 +1787,7 @@ async function updateUserItemsAndCoins(username, rewards, session) {
 
 async function getUserDetails(username, session) {
   return await userCollection.findOne(
-    { _id: username },
+    { username },
     { projection: { _id: 0, username: 1, boxes: 1, items: 1, coins: 1 } },
     { session }
   );
@@ -1710,7 +1795,7 @@ async function getUserDetails(username, session) {
 
 async function updateBoxCount(username, count, session) {
   await userCollection.updateOne(
-    { _id: username },
+    { username },
     { $inc: { boxes: count } },
     { session }
   );
@@ -1737,7 +1822,7 @@ function rollForRarity() {
 
 async function updateCoins(username, amount, session) {
   await userCollection.updateOne(
-    { _id: username },
+    { username },
     { $inc: { coins: amount } },
     { session }
   );
@@ -1778,22 +1863,7 @@ async function getAllItemIds() {
     return await PackItemsCollection.find({}, { _id: 0, id: 1 }).toArray();
 }
 
-const battlePassTiers = [
-  { tier: 0, price: 0, reward: { coins: 0 } },
 
-  { tier: 1, price: 0, reward: { boxes: 2 } },
-  { tier: 2, price: 50, reward: { coins: 150 } },
-  { tier: 3, price: 50, reward: { items: ["P009"] } },
-  { tier: 4, price: 50, reward: { coins: 200 } },
-  { tier: 5, price: 50, reward: { boxes: 5 } },
-  { tier: 6, price: 50, reward: { coins: 250 } },
-  { tier: 7, price: 50, reward: { items: ["I016"] } },
-  { tier: 8, price: 50, reward: { coins: 300 } },
-  { tier: 9, price: 50, reward: { coins: 400 } },
-  { tier: 10, price: 50, reward: { boxes: 10, items: ["A037", "B028"] } },
-
-  // ... continue defining tiers up to tier 10
-];
 
 app.post("/upgrade-battle-pass/:token", checkRequestSize, verifyToken, async (req, res) => {
   const username = req.user.username;
@@ -1805,7 +1875,7 @@ app.post("/upgrade-battle-pass/:token", checkRequestSize, verifyToken, async (re
     session.startTransaction();
 
     const userRow = await battlePassCollection.findOneAndUpdate(
-      { _id:username },
+      { username },
       { $setOnInsert: { season_coins: 0, currentTier: 0 } },
       {
         upsert: true,
@@ -1819,7 +1889,7 @@ app.post("/upgrade-battle-pass/:token", checkRequestSize, verifyToken, async (re
       return res.status(401).json({ message: "Invalid request." });
     }
 
-    if (userRow.currentTier > 9) {
+    if (userRow.currentTier > maxbattlepasstier - 1) {
       return res.status(401).json({ message: "Max tier reached." });
     }
 
@@ -1848,7 +1918,7 @@ app.post("/upgrade-battle-pass/:token", checkRequestSize, verifyToken, async (re
     // Update the user's coins and set the current tier in the battle pass entry
     const updateResult = await Promise.all([
       battlePassCollection.updateOne(
-        { _id:username },
+        { username },
         {
           $inc: { season_coins: -selectedTier.price },
           $set: { currentTier: nextTier },
@@ -1860,7 +1930,7 @@ app.post("/upgrade-battle-pass/:token", checkRequestSize, verifyToken, async (re
     // Apply the rewards for the upgraded tier
     if (selectedTier.reward.coins) {
       await userCollection.updateOne(
-        { _id:username },
+        { username },
         { $inc: { coins: selectedTier.reward.coins } },
         { session },
       );
@@ -1868,7 +1938,7 @@ app.post("/upgrade-battle-pass/:token", checkRequestSize, verifyToken, async (re
 
        if (selectedTier.reward.boxes) {
       await userCollection.updateOne(
-        { _id:username },
+        { username },
         { $inc: { boxes: selectedTier.reward.boxes } },
         { session },
       );
@@ -1878,7 +1948,7 @@ app.post("/upgrade-battle-pass/:token", checkRequestSize, verifyToken, async (re
     // Add logic to push items to the user's items array
     if (selectedTier.reward.items && selectedTier.reward.items.length > 0) {
       await userCollection.updateOne(
-        { _id: username },
+        { username },
         { $push: { items: { $each: selectedTier.reward.items } } },
         { session },
       );
@@ -1897,7 +1967,7 @@ app.post("/upgrade-battle-pass/:token", checkRequestSize, verifyToken, async (re
   } catch (error) {
     await session.abortTransaction();
     console.error("Transaction aborted:", error);
-    res.status(500).json({ message: "Internal Server Error." });
+    res.status(500).json({ message: "error" });
   } finally {
     if (session) {
       session.endSession();
@@ -1907,13 +1977,6 @@ app.post("/upgrade-battle-pass/:token", checkRequestSize, verifyToken, async (re
 
 
 
-
-
-const loginreward = [
- { reward: { items: ["I015"], coins: 500, boxes: 8 } },
- //  { reward: { items: ["I011"] } },
-  // { reward: { coins: 1000, items: ["A032", "B023"] } },
-];
 
 app.post("/claim-login-reward/:token", checkRequestSize, verifyToken, async (req, res) => {
   const username = req.user.username;
@@ -1928,7 +1991,7 @@ app.post("/claim-login-reward/:token", checkRequestSize, verifyToken, async (req
    
     const claimedReward = await loginRewardsCollection.findOne({ username });
 
-    if (claimedReward) {
+    if (claimedReward || loginrewardactive === "false") {
       return res.status(401).json({ message: "Login reward already claimed." });
     }
 
@@ -1949,7 +2012,7 @@ app.post("/claim-login-reward/:token", checkRequestSize, verifyToken, async (req
     if (reward.coins) {
       coinsEarned = reward.coins;
       await userCollection.updateOne(
-        { _id: username },
+        { username },
         { $inc: { coins: coinsEarned } },
         { session }
       );
@@ -1958,7 +2021,7 @@ app.post("/claim-login-reward/:token", checkRequestSize, verifyToken, async (req
     if (reward.boxes) {
       boxesEarned = reward.boxes;
       await userCollection.updateOne(
-        { _id: username },
+        { username },
         { $inc: { boxes: boxesEarned } },
         { session }
       );
@@ -1967,7 +2030,7 @@ app.post("/claim-login-reward/:token", checkRequestSize, verifyToken, async (req
     if (reward.items && reward.items.length > 0) {
       itemsReceived = reward.items;
       await userCollection.updateOne(
-        { _id:username },
+        { username },
         { $push: { items: { $each: itemsReceived } } },
         { session }
       );
@@ -1986,7 +2049,7 @@ app.post("/claim-login-reward/:token", checkRequestSize, verifyToken, async (req
   } catch (error) {
     await session.abortTransaction();
     console.error("Transaction aborted:", error);
-    res.status(500).json({ message: "Internal Server Error." });
+    res.status(500).json({ message: "error" });
   } finally {
     if (session) {
       session.endSession();
@@ -2055,7 +2118,7 @@ app.get("/compare-items/:username", async (req, res) => {
 
   try {
     const userRow = await userCollection.findOne(
-      { _id: username },
+      { username },
       { projection: { items: 1 } },
     );
 
@@ -2078,7 +2141,7 @@ app.get("/compare-items/:username", async (req, res) => {
     res.json({ missingItems });
   } catch (error) {
     console.error("Error comparing items:", error);
-    res.status(500).json({ message: "Internal Server Error." });
+    res.status(500).json({ message: "ERROR" });
   }
 });
 
@@ -2273,7 +2336,7 @@ app.post("/send-friend-request/:token/:friendUsername", checkRequestSize, verify
       {
         $facet: {
           userFriendsData: [
-            { $match: { _id: username } },
+            { $match: { username } },
             { $project: { friendRequests: 1, friends: 1 } }
           ],
           friendFriendsData: [
@@ -2330,7 +2393,7 @@ app.post("/send-friend-request/:token/:friendUsername", checkRequestSize, verify
   } catch (error) {
     console.error("Error sending friend request:", error);
     if (session) await session.abortTransaction();
-    res.status(500).json({ message: "Internal Server Error." });
+    res.status(500).json({ message: "error" });
   } finally {
     if (session) session.endSession();
   }
@@ -2354,7 +2417,7 @@ app.post("/accept-friend-request/:token/:friendUsername", checkRequestSize, veri
       {
         $facet: {
           userFriendsData: [
-            { $match: { _id: username } },
+            { $match: { username } },
             { $project: { friendRequests: 1, friends: 1 } }
           ],
           friendFriendsData: [
@@ -2380,18 +2443,18 @@ app.post("/accept-friend-request/:token/:friendUsername", checkRequestSize, veri
 
     if (userFriends.length >= friendMax) {
       await session.abortTransaction();
-      return res.status(400).json({ message: "You have reached the limit of 10 friends." });
+      return res.status(400).json({ message: "You have reached the limit of friends." });
     }
 
     if (friendFriends.length >= friendMax) {
       await session.abortTransaction();
-      return res.status(400).json({ message: "The sender has reached the limit of 10 friends." });
+      return res.status(400).json({ message: "The sender has reached the limit of friends." });
     }
 
     await friendsCollection.bulkWrite([
       {
         updateOne: {
-          filter: { _id: username },
+          filter: { username },
           update: {
             $pull: { friendRequests: friendUsername },
             $addToSet: { friends: friendUsername }
@@ -2417,7 +2480,7 @@ app.post("/accept-friend-request/:token/:friendUsername", checkRequestSize, veri
   } catch (error) {
     console.error("Error accepting friend request:", error);
     if (session) await session.abortTransaction();
-    res.status(500).json({ message: "Internal Server Error." });
+    res.status(500).json({ message: "error" });
   } finally {
     if (session) session.endSession();
   }
@@ -2438,7 +2501,7 @@ app.post("/reject-friend-request/:token/:friendUsername", checkRequestSize, veri
     session.startTransaction();
 
     const userFriendsData = await friendsCollection.findOne(
-      { _id: username },
+      { username },
       { projection: { friendRequests: 1 }, session }
     );
 
@@ -2450,7 +2513,7 @@ app.post("/reject-friend-request/:token/:friendUsername", checkRequestSize, veri
     }
 
     await friendsCollection.updateOne(
-      { _id: username },
+      { username },
       { $pull: { friendRequests: friendUsername } },
       { session }
     );
@@ -2459,7 +2522,7 @@ app.post("/reject-friend-request/:token/:friendUsername", checkRequestSize, veri
     res.json({ message: "Friend request rejected." });
   } catch (error) {
     console.error("Error rejecting friend request:", error);
-    res.status(500).json({ message: "Internal Server Error." });
+    res.status(500).json({ message: "error" });
   } finally {
     if (session) session.endSession();
   }
@@ -2479,7 +2542,7 @@ app.delete("/delete-friend/:token/:friendUsername", checkRequestSize, verifyToke
     session.startTransaction();
 
     const userFriendsData = await friendsCollection.findOne(
-      { _id: username },
+      { username },
       { projection: { friends: 1 }, session }
     );
 
@@ -2493,7 +2556,7 @@ app.delete("/delete-friend/:token/:friendUsername", checkRequestSize, verifyToke
    await friendsCollection.bulkWrite([
   {
     updateOne: {
-      filter: { _id: username },
+      filter: { username },
       update: { $pull: { friends: friendUsername } },
       session
     }
@@ -2511,7 +2574,7 @@ app.delete("/delete-friend/:token/:friendUsername", checkRequestSize, verifyToke
     res.json({ message: "Friend deleted." });
   } catch (error) {
     console.error("Error deleting friend:", error);
-    res.status(500).json({ message: "Internal Server Error." });
+    res.status(500).json({ message: "error" });
   } finally {
     if (session) session.endSession();
   }
@@ -2574,7 +2637,7 @@ app.get("/search-users/:token/:text", checkRequestSize, verifyToken, async (req,
     res.json(users);
   } catch (error) {
     console.error("Error searching for users:", error);
-    res.status(500).json({ message: "Internal Server Error." });
+    res.status(500).json({ message: "error" });
   }
 });
 
@@ -2587,7 +2650,7 @@ app.get("/get-friends/:token", checkRequestSize, verifyToken, async (req, res) =
 
   try {
     const userFriendsData = await friendsCollection.findOne(
-      { _id: username },
+      { username },
       { projection: { friends: 1, friendRequests: 1 } }
     );
 
@@ -2597,13 +2660,29 @@ app.get("/get-friends/:token", checkRequestSize, verifyToken, async (req, res) =
     res.json({ friends, friendRequests });
   } catch (error) {
     console.error("Error retrieving friends and friend requests collection:", error);
-    res.status(500).json({ message: "Internal Server Error." });
+    res.status(500).json({ message: "error" });
   }
 });
 
-//eventEmitter.setMaxListeners(50);
+eventEmitter.setMaxListeners(50);
+
+
+let activeConnections = {};
+
 app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
   const username = req.user.username;
+  const ip = req.headers['true-client-ip'] || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+  // Use a unique key combining the username and IP address
+  const connectionKey = `${username}_${ip}`;
+
+  // End any existing connection for this user and IP
+  if (activeConnections[connectionKey]) {
+    activeConnections[connectionKey].end();
+  }
+
+  // Track the new connection
+  activeConnections[connectionKey] = res;
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -2617,6 +2696,12 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
   const onShopUpdate = (data) => {
     res.write(`data: ${JSON.stringify(data)}\n\n`);
     resetInactivityTimeout();
+  };
+
+  const onMaintenanceUpdate = (data) => {
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+    resetInactivityTimeout();
+    eventEmitter.removeAllListeners();
   };
 
   const onFriendRequestSent = (data) => {
@@ -2638,9 +2723,8 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
       clearTimeout(inactivityTimeout);
     }
     inactivityTimeout = setTimeout(() => {
-      eventEmitter.removeListener('friendRequestSent', onFriendRequestSent);
-      eventEmitter.removeListener('shopUpdate', onShopUpdate);
       res.end();
+      delete activeConnections[connectionKey];
     }, 5 * 60 * 1000); // 5 minutes
   };
 
@@ -2650,20 +2734,17 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
   // Register event listeners
   eventEmitter.on('friendRequestSent', onFriendRequestSent);
   eventEmitter.on('shopUpdate', onShopUpdate);
+  eventEmitter.on('maintenanceUpdate', onMaintenanceUpdate);
 
   // Cleanup on client disconnect
   req.on('close', () => {
     clearTimeout(inactivityTimeout);
-    eventEmitter.removeListener('friendRequestSent', onFriendRequestSent);
-    eventEmitter.removeListener('shopUpdate', onShopUpdate);
+    delete activeConnections[connectionKey];
     res.end();
   });
 });
-
-async function watchItemShop() {
+/*async function watchItemShop() {
   try {
-    await client.connect();
-
     const documentId = "dailyItems"; // Ensure this matches the actual ID type
 
     // Create a Change Stream with a pipeline to match changes for the specific document ID
@@ -2687,7 +2768,57 @@ async function watchItemShop() {
   }
 }
 
-   watchItemShop();
+*/
+
+async function watchItemShop() {
+  try {
+    // Define the document IDs to watch
+    const dailyItemsId = "dailyItems";
+    const maintenanceId = "maintenance";
+
+    // Create a Change Stream pipeline to match changes for both document IDs
+    const pipeline = [
+      { $match: { $or: [{ 'fullDocument._id': dailyItemsId }, { 'fullDocument._id': maintenanceId }] } }
+    ];
+
+    // Watch the collection with the defined pipeline
+    const changeStream = shopcollection.watch(pipeline, { fullDocument: 'updateLookup' });
+
+    // Handle changes detected by the Change Stream
+    changeStream.on('change', (change) => {
+      const timestamp = new Date().toISOString();
+      const documentId = change.fullDocument._id;
+
+      if (documentId === dailyItemsId) {
+        // Emit an event for daily items updates
+        eventEmitter.emit('shopUpdate', { update: "shopupdate", timestamp });
+        console.log("Daily items updated.");
+      } else if (documentId === maintenanceId) {
+        const maintenanceStatus = change.fullDocument.status // Adjust field name as needed
+
+        if (maintenanceStatus === "true") {
+          // Emit an event for maintenance updates only if status is false
+             maintenanceMode = true;
+          eventEmitter.emit('maintenanceUpdate', { update: "maintenanceupdate", timestamp });
+                                                 
+        } else {
+            if (maintenanceStatus === "false") {
+          // Emit an event for maintenance updates only if status is false
+             maintenanceMode = false;                                                 
+        } 
+        }
+      } else {
+        console.log("Unexpected document ID:", documentId);
+      }
+    });
+
+  } catch (error) {
+    console.error('Error setting up Change Stream:', error);
+  }
+}
+
+
+ 
 
 
 
@@ -2697,7 +2828,7 @@ app.use((err, req, res, next) => {
   console.error('An error occurred:', err);
 
   // Send an appropriate response based on the error
-  res.status(500).json({ error: 'Unexpected server error' });
+  res.status(500).json({ error: 'Unexpected error' });
 
        });
 
