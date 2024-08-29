@@ -2661,32 +2661,42 @@ app.get("/get-friends/:token", checkRequestSize, verifyToken, async (req, res) =
   }
 });
 
+
+
+ 
 eventEmitter.setMaxListeners(50);
 
+// Track connections
 const activeConnections = new Map(); 
 
-// Track connections globally
+// Define event listeners
 const globalListeners = {
   friendRequestSent: (data) => {
-    activeConnections.forEach((response, key) => {
-      if (data.to === key.username) {
+    activeConnections.forEach((connection, key) => {
+      if (data.to === connection.username) {
         const timestamp = new Date().toISOString();
         const eventData = { ...data, timestamp };
-        response.write(`data: ${JSON.stringify(eventData)}\n\n`);
-        resetInactivityTimeout(key);
+        if (connection.res && typeof connection.res.write === 'function') {
+          connection.res.write(`data: ${JSON.stringify(eventData)}\n\n`);
+          resetInactivityTimeout(key);
+        }
       }
     });
   },
   shopUpdate: (data) => {
-    activeConnections.forEach((response, key) => {
-      response.write(`data: ${JSON.stringify(data)}\n\n`);
-      resetInactivityTimeout(key);
+    activeConnections.forEach((connection, key) => {
+      if (connection.res && typeof connection.res.write === 'function') {
+        connection.res.write(`data: ${JSON.stringify(data)}\n\n`);
+        resetInactivityTimeout(key);
+      }
     });
   },
   maintenanceUpdate: (data) => {
-    activeConnections.forEach((response, key) => {
-      response.write(`data: ${JSON.stringify(data)}\n\n`);
-      resetInactivityTimeout(key);
+    activeConnections.forEach((connection, key) => {
+      if (connection.res && typeof connection.res.write === 'function') {
+        connection.res.write(`data: ${JSON.stringify(data)}\n\n`);
+        resetInactivityTimeout(key);
+      }
     });
     eventEmitter.removeAllListeners(); // Clean up listeners globally
   }
@@ -2704,7 +2714,7 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
   const connectionKey = `${username}_${ip}`;
 
   if (activeConnections.has(connectionKey)) {
-    activeConnections.get(connectionKey).end();
+    activeConnections.get(connectionKey).res.end();
   }
 
   const clientConnection = { username, res };
@@ -2744,69 +2754,34 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
     res.end();
   });
 });
-/*async function watchItemShop() {
-  try {
-    const documentId = "dailyItems"; // Ensure this matches the actual ID type
 
-    // Create a Change Stream with a pipeline to match changes for the specific document ID
-    const pipeline = [
-      { $match: { 'fullDocument._id': documentId } }
-    ];
-
-    // Watch the collection with the defined pipeline
-    const changeStream = shopcollection.watch(pipeline, { fullDocument: 'updateLookup' });
-
-    // Handle changes detected by the Change Stream
-    changeStream.on('change', (change) => {
-       const timestamp = new Date().toISOString();
-         eventEmitter.emit('shopUpdate', { update: "shopupdate", timestamp });
-      console.log("Change detected:");
-    });
-
-      // Emit the event directly with the change object
-  } catch (error) {
-    console.error('Error setting up Change Stream:', error);
-  }
-}
-
-*/
-
+// Function to watch MongoDB items and emit events
 async function watchItemShop() {
   try {
-    // Define the document IDs to watch
     const dailyItemsId = "dailyItems";
     const maintenanceId = "maintenance";
 
-    // Create a Change Stream pipeline to match changes for both document IDs
     const pipeline = [
       { $match: { $or: [{ 'fullDocument._id': dailyItemsId }, { 'fullDocument._id': maintenanceId }] } }
     ];
 
-    // Watch the collection with the defined pipeline
     const changeStream = shopcollection.watch(pipeline, { fullDocument: 'updateLookup' });
 
-    // Handle changes detected by the Change Stream
     changeStream.on('change', (change) => {
       const timestamp = new Date().toISOString();
       const documentId = change.fullDocument._id;
 
       if (documentId === dailyItemsId) {
-        // Emit an event for daily items updates
         eventEmitter.emit('shopUpdate', { update: "shopupdate", timestamp });
         console.log("Daily items updated.");
       } else if (documentId === maintenanceId) {
-        const maintenanceStatus = change.fullDocument.status // Adjust field name as needed
+        const maintenanceStatus = change.fullDocument.status; // Adjust field name if needed
 
         if (maintenanceStatus === "true") {
-          // Emit an event for maintenance updates only if status is false
-             maintenanceMode = true;
+          maintenanceMode = true;
           eventEmitter.emit('maintenanceUpdate', { update: "maintenanceupdate", timestamp });
-                                                 
-        } else {
-            if (maintenanceStatus === "false") {
-          // Emit an event for maintenance updates only if status is false
-             maintenanceMode = false;                                                 
-        } 
+        } else if (maintenanceStatus === "false") {
+          maintenanceMode = false;
         }
       } else {
         console.log("Unexpected document ID:", documentId);
@@ -2818,8 +2793,8 @@ async function watchItemShop() {
   }
 }
 
-
- 
+// Start watching MongoDB changes
+watchItemShop();
 
 
 
