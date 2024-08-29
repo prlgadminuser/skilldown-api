@@ -453,94 +453,126 @@ const verifyPassword = (password, salt, hashedPassword) => {
   return hash === hashedPassword;
 };
 
-app.post('/register', checkRequestSize, registerLimiter, async (req, res) => {
+app.post("/register", checkRequestSize, registerLimiter, async (req, res) => {
   try {
     const { username, password } = req.body;
+    let finalCountryCode = "Unknown"; // Initialize with the default value
 
     if (!username || !password) {
-      res.status(400).send('Both username and password are required');
+      res.status(400).send("Both username and password are required");
       return;
     }
 
-    if (username === password) {
-      res.status(400).send('Username and password cannot be identical');
+   if (username === password) {
+      res.status(400).send("identical types");
       return;
     }
-
-    // Replace with your username and password regex checks
-    const usernameRegex = /^[a-zA-Z0-9_]{3,30}$/;
-    const passwordRegex = /^[a-zA-Z0-9!@#$%^&*]{6,30}$/;
+     
 
     if (!usernameRegex.test(username)) {
-      res.status(400).send('Invalid username');
+      res
+        .status(400)
+        .send(
+          "Invalid username",
+        );
       return;
     }
 
     if (!passwordRegex.test(password)) {
-      res.status(400).send('Invalid password');
+      res
+        .status(400)
+        .send(
+          "Invalid password",
+        );
       return;
     }
 
-    const existingUser = await userCollection.findOne({ username });
+     const existingUser = await userCollection.findOne(
+      { username: { $regex: new RegExp(`^${username}$`, "i") } },
+      { projection: { _id: 0, username: 1 } },
+    );
 
     if (existingUser) {
-      res.status(409).send('Username already taken');
+      res.status(409).send("Username already taken");
       return;
     }
 
-    // Hash password using Argon2
-    const hashedPassword = await argon2.hash(password);
+    // Use getCountryCode function to get the country code based on the user's IP address
+    try {
+      const countryCode = await getCountryCode(req.ip);
+      finalCountryCode = countryCode || finalCountryCode; // Update only if countryCode is truthy
+    } catch (error) {
+      console.error("Error getting country code:", error.message);
+    }
 
-    // You might want to implement `getCountryCode` based on your needs
-    const finalCountryCode = 'Unknown'; // Replace with actual implementation
+    // Check account creation limit here
+        const hashedPassword = await argon2.hash(password);
+        const token = jwt.sign({ username }, tokenkey);
+        const currentTimestamp = new Date();
 
-    // Insert user into database
-    await userCollection.insertOne({
-      username,
-      password: hashedPassword,
-      coins: 100,
-      created_at: new Date(),
-      country_code: finalCountryCode,
-      token: null,
-      last_collected: 0,
-      items: []
+        applyAccountCreationLimit(req, res, async () => {
+
+           try {
+
+        await userCollection.insertOne({
+          username,
+          password: hashedPassword,
+          coins: 100,
+          created_at: currentTimestamp,
+          country_code: finalCountryCode,
+          token,
+          last_collected: 0,
+          items: [],
+
+        });
+
+
+        const joinedMessage = `${username} joined Skilled Legends.`;
+        webhook.send(joinedMessage);
+
+        res.status(201).json({ token });
+      } catch (error) {
+        console.error(error);
+        res.status(500).send("Internal Server Error");
+      }
     });
-
-    res.status(201).send('User registered successfully');
   } catch (error) {
     console.error(error);
-    res.status(500).send('Internal Server Error');
+    res.status(500).send("Internal Server Error");
   }
 });
 
-app.post('/login', checkRequestSize, registerLimiter, async (req, res) => {
+// Login route
+app.post("/login", checkRequestSize, registerLimiter, async (req, res) => {
   const { username, password } = req.body;
 
   try {
-    const user = await userCollection.findOne({ username });
+    const user = await userCollection.findOne(
+      { username },
+      { projection: { username: 1, password: 1 } },
+    );
 
     if (!user) {
-      res.status(401).send('Invalid username or password');
+      res.status(401).send("Invalid username or password");
       return;
     }
 
-    const { password: hashedPassword } = user;
+    const passwordMatch = await argon2.verify(hashedPassword, password);
 
-    // Verify password using Argon2
-    const isMatch = await argon2.verify(hashedPassword, password);
-
-    if (!isMatch) {
-      res.status(401).send('Invalid username or password');
+    if (!passwordMatch) {
+      res.status(401).send("Invalid username or password");
       return;
     }
 
-    const token = jwt.sign({ username: user.username }, tokenKey);
+    // Generate a token
+    const token = jwt.sign({ username: user.username }, tokenkey);
 
+    // Save the token to the user document
     await userCollection.updateOne({ username }, { $set: { token } });
 
     res.json({ token });
   } catch (error) {
-    res.status(500).send('Internal Server Error');
+    res.status(500).send("Internal Server Error");
   }
 });
 
