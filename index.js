@@ -2678,12 +2678,14 @@ const globalListeners = {
         const eventData = { ...data, timestamp };
         if (connection.res && typeof connection.res.write === 'function') {
           connection.res.write(`data: ${JSON.stringify(eventData)}\n\n`);
+          console.log('Emitted friendRequestSent to:', key);
           resetInactivityTimeout(key);
         }
       }
     });
   },
   shopUpdate: (data) => {
+    console.log('Emitting shopUpdate:', data); // Debugging line
     activeConnections.forEach((connection, key) => {
       if (connection.res && typeof connection.res.write === 'function') {
         connection.res.write(`data: ${JSON.stringify(data)}\n\n`);
@@ -2692,6 +2694,7 @@ const globalListeners = {
     });
   },
   maintenanceUpdate: (data) => {
+    console.log('Emitting maintenanceUpdate:', data); // Debugging line
     activeConnections.forEach((connection, key) => {
       if (connection.res && typeof connection.res.write === 'function') {
         connection.res.write(`data: ${JSON.stringify(data)}\n\n`);
