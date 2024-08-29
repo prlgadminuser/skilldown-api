@@ -2663,23 +2663,54 @@ app.get("/get-friends/:token", checkRequestSize, verifyToken, async (req, res) =
 
 eventEmitter.setMaxListeners(50);
 
+const activeConnections = new Map(); 
 
-let activeConnections = {};
+// Track connections globally
+const globalListeners = {
+  friendRequestSent: (data) => {
+    activeConnections.forEach((response, key) => {
+      if (data.to === key.username) {
+        const timestamp = new Date().toISOString();
+        const eventData = { ...data, timestamp };
+        response.write(`data: ${JSON.stringify(eventData)}\n\n`);
+        resetInactivityTimeout(key);
+      }
+    });
+  },
+  shopUpdate: (data) => {
+    activeConnections.forEach((response, key) => {
+      response.write(`data: ${JSON.stringify(data)}\n\n`);
+      resetInactivityTimeout(key);
+    });
+  },
+  maintenanceUpdate: (data) => {
+    activeConnections.forEach((response, key) => {
+      response.write(`data: ${JSON.stringify(data)}\n\n`);
+      resetInactivityTimeout(key);
+    });
+    eventEmitter.removeAllListeners(); // Clean up listeners globally
+  }
+};
+
+// Attach global listeners
+Object.keys(globalListeners).forEach(event => {
+  eventEmitter.on(event, globalListeners[event]);
+});
 
 app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
   const username = req.user.username;
   const ip = req.headers['true-client-ip'] || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
-  // Use a unique key combining the username and IP address
   const connectionKey = `${username}_${ip}`;
 
-  // End any existing connection for this user and IP
-  if (activeConnections[connectionKey]) {
-    activeConnections[connectionKey].end();
+  if (activeConnections.has(connectionKey)) {
+    activeConnections.get(connectionKey).end();
   }
 
+  const clientConnection = { username, res };
+
   // Track the new connection
-  activeConnections[connectionKey] = res;
+  activeConnections.set(connectionKey, clientConnection);
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -2690,53 +2721,26 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
 
   let inactivityTimeout;
 
-  const onShopUpdate = (data) => {
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
-    resetInactivityTimeout();
-  };
-
-  const onMaintenanceUpdate = (data) => {
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
-    resetInactivityTimeout();
-    eventEmitter.removeAllListeners();
-  };
-
-  const onFriendRequestSent = (data) => {
-    if (data.to === username) {
-      const timestamp = new Date().toISOString();
-      const eventData = { ...data, timestamp };
-
-      if (data.type === 'send' || data.type === 'accept') {
-        eventData.type = data.type;
-      }
-
-      res.write(`data: ${JSON.stringify(eventData)}\n\n`);
-      resetInactivityTimeout();
-    }
-  };
-
-  const resetInactivityTimeout = () => {
+  const resetInactivityTimeout = (key) => {
     if (inactivityTimeout) {
       clearTimeout(inactivityTimeout);
     }
     inactivityTimeout = setTimeout(() => {
-      res.end();
-      delete activeConnections[connectionKey];
+      const connection = activeConnections.get(key);
+      if (connection) {
+        connection.res.end();
+        activeConnections.delete(key);
+      }
     }, 5 * 60 * 1000); // 5 minutes
   };
 
   // Set initial inactivity timeout
-  resetInactivityTimeout();
-
-  // Register event listeners
-  eventEmitter.on('friendRequestSent', onFriendRequestSent);
-  eventEmitter.on('shopUpdate', onShopUpdate);
-  eventEmitter.on('maintenanceUpdate', onMaintenanceUpdate);
+  resetInactivityTimeout(connectionKey);
 
   // Cleanup on client disconnect
   req.on('close', () => {
     clearTimeout(inactivityTimeout);
-    delete activeConnections[connectionKey];
+    activeConnections.delete(connectionKey);
     res.end();
   });
 });
