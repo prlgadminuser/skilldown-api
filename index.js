@@ -10,6 +10,36 @@ const allgadgets = 3
 const friendMax = 30
 const maxaccountlimit = 1
 
+
+const maxbattlepasstier = 10
+const loginrewardactive = false
+
+
+const battlePassTiers = [
+  { tier: 0, price: 0, reward: { coins: 0 } },
+
+  { tier: 1, price: 0, reward: { boxes: 2 } },
+  { tier: 2, price: 50, reward: { coins: 150 } },
+  { tier: 3, price: 50, reward: { items: ["P009"] } },
+  { tier: 4, price: 50, reward: { coins: 200 } },
+  { tier: 5, price: 50, reward: { boxes: 5 } },
+  { tier: 6, price: 50, reward: { coins: 250 } },
+  { tier: 7, price: 50, reward: { items: ["I016"] } },
+  { tier: 8, price: 50, reward: { coins: 300 } },
+  { tier: 9, price: 50, reward: { coins: 400 } },
+  { tier: 10, price: 50, reward: { boxes: 10, items: ["A037", "B028"] } },
+
+  // ... continue defining tiers up to tier 10
+];
+
+const loginreward = [
+ { reward: { items: ["I015"], coins: 500, boxes: 8 } },
+ //  { reward: { items: ["I011"] } },
+  // { reward: { coins: 1000, items: ["A032", "B023"] } },
+];
+
+
+
 // configurations
    
 const express = require("express");
@@ -570,10 +600,6 @@ app.get("/get-coins/:token", checkRequestSize, verifyToken, async (req, res) => 
 
     await session.commitTransaction();
 
-    if (updateResult.modifiedCount !== 1) {
-      res.status(500).send("Failed to update user data");
-      return;
-    }
 
     // Send a Discord webhook notification
     //const coinsMessage = `${username} has received ${coinsToAdd} Coins.`;
@@ -587,7 +613,7 @@ app.get("/get-coins/:token", checkRequestSize, verifyToken, async (req, res) => 
     });
 
   } catch (error) {
-    res.status(500).send("Internal Server Error");
+    res.status(500).send("error");
     await session.abortTransaction();
   }
 
@@ -617,7 +643,7 @@ app.get("/daily-items/:token", checkRequestSize, verifyToken, async (req, res) =
     });
   } catch (error) {
     console.error("Error fetching daily items:", error);
-    res.status(500).json({ message: "Internal Server Error." });
+    res.status(500).json({ message: "error" });
   }
 });
 
@@ -699,7 +725,7 @@ const user = await userCollection.findOne(
   } catch (error) {
     await session.abortTransaction();
     console.error("Transaction aborted:", error);
-    res.status(500).json({ message: "Internal Server Error." });
+    res.status(500).json({ message: "error" });
   } finally {
     if (session) {
       session.endSession();
@@ -730,13 +756,13 @@ app.post("/equip-gadget/:token/:gadget", checkRequestSize, verifyToken, async (r
         gadget: gadget,
       });
     } else {
-      res.status(500).json({ message: "Failed to update gadget." });
+      res.status(500).json({ message: "failed" });
     }
   } catch (error) {
     console.error("Error:", error);
     res
       .status(500)
-      .json({ message: "Internal Server Error while equipping" });
+      .json({ message: "error" });
   }
 });
 
@@ -756,7 +782,7 @@ app.post("/equip-item1/:token/:itemid", checkRequestSize, verifyToken, async (re
     );
 
     if (!user) {
-      return res.status(404).json({ error: "Ungültige Anmeldeinformationen oder Item nicht gefunden." });
+      return res.status(404).json({ error: "item is not valid" });
     }
 
     // Equip the item by updating the equipped_item field
@@ -769,7 +795,7 @@ app.post("/equip-item1/:token/:itemid", checkRequestSize, verifyToken, async (re
       message: `success`,
     });
   } catch (error) {
-    return res.status(500).json({ error: "Interner Serverfehler." });
+    return res.status(500).json({ error: "error" });
   }
 });
 
@@ -789,7 +815,7 @@ app.post("/equip-item2/:token/:itemid", checkRequestSize, verifyToken, async (re
     );
 
     if (!user) {
-      return res.status(404).json({ error: "Ungültige Anmeldeinformationen oder Item nicht gefunden." });
+      return res.status(404).json({ error: "item is not valid" });
     }
 
     // Equip the item by updating the equipped_item field
@@ -802,7 +828,7 @@ app.post("/equip-item2/:token/:itemid", checkRequestSize, verifyToken, async (re
       message: `success`,
     });
   } catch (error) {
-    return res.status(500).json({ error: "Interner Serverfehler." });
+    return res.status(500).json({ error: "error" });
   }
 });
 
@@ -822,7 +848,7 @@ app.post("/equip-banner/:token/:itemid", checkRequestSize, verifyToken, async (r
     );
 
     if (!user) {
-      return res.status(404).json({ error: "Ungültige Anmeldeinformationen oder Item nicht gefunden." });
+      return res.status(404).json({ error: "error" });
     }
 
     // Equip the item by updating the equipped_item field
@@ -835,7 +861,7 @@ app.post("/equip-banner/:token/:itemid", checkRequestSize, verifyToken, async (r
       message: `success`,
     });
   } catch (error) {
-    return res.status(500).json({ error: "Interner Serverfehler." });
+    return res.status(500).json({ error: "error" });
   }
 });
 
@@ -855,7 +881,7 @@ app.post("/equip-pose/:token/:itemid", checkRequestSize, verifyToken, async (req
     );
 
     if (!user) {
-      return res.status(404).json({ error: "Ungültige Anmeldeinformationen oder Item nicht gefunden." });
+      return res.status(404).json({ error: "error" });
     }
 
     // Equip the item by updating the equipped_item field
@@ -868,7 +894,7 @@ app.post("/equip-pose/:token/:itemid", checkRequestSize, verifyToken, async (req
       message: `success`,
     });
   } catch (error) {
-    return res.status(500).json({ error: "Interner Serverfehler." });
+    return res.status(500).json({ error: "error" });
   }
 });
 
@@ -880,7 +906,7 @@ app.post("/equip-color/:token/:color", checkRequestSize, verifyToken, async (req
   if (isNaN(parsedColor) || parsedColor < -400 || parsedColor > 400) {
     return res
       .status(400)
-      .json({ message: "Color must be a number between -200 and 200." });
+      .json({ message: "error" });
   }
 
   try {
@@ -895,13 +921,13 @@ app.post("/equip-color/:token/:color", checkRequestSize, verifyToken, async (req
         equipped_color: parsedColor,
       });
     } else {
-      res.status(500).json({ message: "Failed to update color." });
+      res.status(500).json({ message: "Failed" });
     }
   } catch (error) {
     console.error("Error:", error);
     res
       .status(500)
-      .json({ message: "Internal Server Error while equipping color." });
+      .json({ message: "error" });
   }
 });
 
@@ -913,7 +939,7 @@ app.post("/equip-hat-color/:token/:color", checkRequestSize, verifyToken, async 
   if (isNaN(parsedColor) || parsedColor < -400 || parsedColor > 400) {
     return res
       .status(400)
-      .json({ message: "Color must be a number between -200 and 200." });
+      .json({ message: "failed" });
   }
 
   try {
@@ -928,13 +954,13 @@ app.post("/equip-hat-color/:token/:color", checkRequestSize, verifyToken, async 
         equipped_color: parsedColor,
       });
     } else {
-      res.status(500).json({ message: "Failed to update color." });
+      res.status(500).json({ message: "failed" });
     }
   } catch (error) {
     console.error("Error:", error);
     res
       .status(500)
-      .json({ message: "Internal Server Error while equipping color." });
+      .json({ message: "error" });
   }
 });
 
@@ -946,7 +972,7 @@ app.post("/equip-body-color/:token/:color", checkRequestSize, verifyToken, async
   if (isNaN(parsedColor) || parsedColor < -400 || parsedColor > 400) {
     return res
       .status(400)
-      .json({ message: "Color must be a number between -200 and 200." });
+      .json({ message: "failed" });
   }
 
   try {
@@ -961,13 +987,13 @@ app.post("/equip-body-color/:token/:color", checkRequestSize, verifyToken, async
         equipped_color: parsedColor,
       });
     } else {
-      res.status(500).json({ message: "Failed to update color." });
+      res.status(500).json({ message: "failed" });
     }
   } catch (error) {
     console.error("Error:", error);
     res
       .status(500)
-      .json({ message: "Internal Server Error while equipping color." });
+      .json({ message: "error" });
   }
 });
 
@@ -979,7 +1005,7 @@ app.post("/equip-banner-color/:token/:color", checkRequestSize, verifyToken, asy
   if (isNaN(parsedColor) || parsedColor < -400 || parsedColor > 400) {
     return res
       .status(400)
-      .json({ message: "Color must be a number between -200 and 200." });
+      .json({ message: "failed" });
   }
 
   try {
@@ -994,13 +1020,13 @@ app.post("/equip-banner-color/:token/:color", checkRequestSize, verifyToken, asy
         equipped_color: parsedColor,
       });
     } else {
-      res.status(500).json({ message: "Failed to update color." });
+      res.status(500).json({ message: "failed" });
     }
   } catch (error) {
     console.error("Error:", error);
     res
       .status(500)
-      .json({ message: "Internal Server Error while equipping color." });
+      .json({ message: "error" });
   }
 });
 
@@ -1028,17 +1054,17 @@ app.post("/reset-equipped-items/:token", checkRequestSize, verifyToken, async (r
 
     if (result.modifiedCount === 1) {
       res.json({
-        message: "Equipped items have been reset successfully.",
+        message: "successfully.",
       });
     } else {
       res.status(500).json({
-        message: "Failed to reset equipped items. User not found.",
+        message: "failed",
       });
     }
   } catch (error) {
     console.error("Error:", error);
     res.status(500).json({
-      message: "Internal Server Error while resetting equipped items.",
+      message: "error",
     });
   }
 });
@@ -1102,7 +1128,7 @@ app.get("/get-user-inventory/:token", checkRequestSize, verifyToken, async (req,
     currentDate.setHours(0, 0, 0, 0);
     const currentTimestamp0am = currentDate.getTime();
 
-    const onetimereward = onetimeRow ? onetimeRow.username || 0 : 0;
+    const onetimereward = loginrewardactive ? onetimeRow ? onetimeRow.username || 0 : 0 : 4;
     const slpasstier = bpuserRow ? bpuserRow.currentTier || 0 : 0;
     const season_coins = bpuserRow ? bpuserRow.season_coins || 0 : 0;
     const bonusitem_damage = bpuserRow ? bpuserRow.bonusitem_damage || 0 : 0;
@@ -1135,7 +1161,7 @@ app.get("/get-user-inventory/:token", checkRequestSize, verifyToken, async (req,
   } catch (error) {
     console.error(error);
     if (!res.headersSent) {
-      res.status(500).json({ message: "Internal Server Error." });
+      res.status(500).json({ message: "error" });
     }
   }
 });
@@ -1189,7 +1215,7 @@ app.get("/get-matchstats/:token", checkRequestSize, verifyToken, async (req, res
     res.json(response);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "server error" });
+    res.status(500).json({ message: "error" });
   }
 });
 
@@ -1222,7 +1248,7 @@ app.get("/user-profile/:token/:usernamed", checkRequestSize, verifyToken, async 
     );
 
     if (!userRow) {
-      return res.status(404).json({ message: "user not found" });
+      return res.status(404).json({ message: "failed" });
     }
 
     const joinedTimestamp = userRow.created_at.getTime();
@@ -1263,7 +1289,7 @@ app.get("/user-profile/:token/:usernamed", checkRequestSize, verifyToken, async 
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Interner Serverfehler." });
+    res.status(500).json({ message: "error" });
   }
 });
 
@@ -1322,7 +1348,7 @@ app.get("/verify-token/:token", checkRequestSize, verifyToken, async (req, res) 
     );
 
     if (!userInformation) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: "failed" });
     }
 
     res.json({
@@ -1330,7 +1356,7 @@ app.get("/verify-token/:token", checkRequestSize, verifyToken, async (req, res) 
     });
   } catch (error) {
     console.error("Internal Server Error:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    res.status(500).json({ error: "error" });
   }
 });
 
@@ -1352,7 +1378,7 @@ app.get("/verify-gameservertoken/:token", checkRequestSize, verifyToken, async (
     );
 
     if (!userInformation) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: "failed" });
     }
 
 /*    const activity = await gameActivityCollection.findOne(
@@ -1394,7 +1420,7 @@ app.get("/verify-gameservertoken/:token", checkRequestSize, verifyToken, async (
  */   
   } catch (error) {
     console.error("Internal Server Error:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    res.status(500).json({ error: "error" });
   }
 });
 
@@ -1403,7 +1429,7 @@ app.get("/user-count", checkRequestSize, async (req, res) => {
     const userCount = await db.collection("users").countDocuments();
     res.json({ userCount });
   } catch (err) {
-    res.status(500).json({ message: "Internal Server Error." });
+    res.status(500).json({ message: "error" });
   }
 });
 
@@ -1424,7 +1450,7 @@ app.get("/total-coins", checkRequestSize, async (req, res) => {
     const totalCoins = result.length > 0 ? result[0].totalCoins : 0;
     res.json({ totalCoins });
   } catch (err) {
-    res.status(500).json({ message: "Internal Server Error." });
+    res.status(500).json({ message: "error" });
   }
 });
 
@@ -1479,7 +1505,7 @@ app.get("/global-place/:token", checkRequestSize, verifyToken, async (req, res) 
     );
 
     if (!userInformation) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: "failed" });
     }
 
     const userSp = userInformation.sp || 0;
@@ -1493,7 +1519,7 @@ app.get("/global-place/:token", checkRequestSize, verifyToken, async (req, res) 
     res.json({ place: place + 1 });
   } catch (error) {
     console.error("Internal server error:", error);
-    res.status(500).json({ message: "Internal server error." });
+    res.status(500).json({ message: "error" });
   }
 });
 
@@ -1591,7 +1617,7 @@ async function checkRequestSize(req, res, next) {
         // Check params length
 
       if (JSON.stringify(req.headers).length > 2500) {
-            return res.status(401).send("Unauthorized 1");
+            return res.status(401).send("Unauthorized");
         }
 
       
@@ -1600,13 +1626,13 @@ async function checkRequestSize(req, res, next) {
       continue; // Skip checking the 'token' parameter
       }
       if (req.params[param].length > 50) {
-      return res.status(401).send("Unauthorized 2");
+      return res.status(401).send("Unauthorized");
       }
     }
 
         // Check body length
         if (req.body && JSON.stringify(req.body).length > 100) {
-            return res.status(401).send("Unauthorized 3");
+            return res.status(401).send("Unauthorized");
         }
 
     
@@ -1614,18 +1640,18 @@ async function checkRequestSize(req, res, next) {
         // Check query parameters length
         for (let query in req.query) {
             if (req.query[query].length > 50) {
-                return res.status(401).send("Unauthorized 5");
+                return res.status(401).send("Unauthorized");
             }
         }
 
         // Check specific token length in params if it exists
         if (req.params.token && req.params.token.length > 500) {
-            return res.status(401).send("Unauthorized 4");
+            return res.status(401).send("Unauthorized");
         }
 
         // Check headers (example: checking the length of a custom header)
         if (req.headers['x-custom-header'] && req.headers['x-custom-header'].length > 500) {
-            return res.status(401).send("Unauthorized 6");
+            return res.status(401).send("Unauthorized");
         }
 
         next();
@@ -1649,7 +1675,7 @@ app.post("/buy-rarity-box/:token", checkRequestSize, verifyToken, async (req, re
 
         // Check if user exists
         if (!user) {
-            return res.status(404).json({ error: "User not found" });
+            return res.status(404).json({ error: "error" });
         }
 
         // Check if user has boxes left
@@ -1685,7 +1711,7 @@ app.post("/buy-rarity-box/:token", checkRequestSize, verifyToken, async (req, re
     } catch (error) {
         await abortTransaction(session);
         console.error("Transaction aborted:", error);
-        return res.status(500).json({ message: "Internal Server Error." });
+        return res.status(500).json({ message: "error" });
     } finally {
         endSession(session);
     }
@@ -1813,22 +1839,7 @@ async function getAllItemIds() {
     return await PackItemsCollection.find({}, { _id: 0, id: 1 }).toArray();
 }
 
-const battlePassTiers = [
-  { tier: 0, price: 0, reward: { coins: 0 } },
 
-  { tier: 1, price: 0, reward: { boxes: 2 } },
-  { tier: 2, price: 50, reward: { coins: 150 } },
-  { tier: 3, price: 50, reward: { items: ["P009"] } },
-  { tier: 4, price: 50, reward: { coins: 200 } },
-  { tier: 5, price: 50, reward: { boxes: 5 } },
-  { tier: 6, price: 50, reward: { coins: 250 } },
-  { tier: 7, price: 50, reward: { items: ["I016"] } },
-  { tier: 8, price: 50, reward: { coins: 300 } },
-  { tier: 9, price: 50, reward: { coins: 400 } },
-  { tier: 10, price: 50, reward: { boxes: 10, items: ["A037", "B028"] } },
-
-  // ... continue defining tiers up to tier 10
-];
 
 app.post("/upgrade-battle-pass/:token", checkRequestSize, verifyToken, async (req, res) => {
   const username = req.user.username;
@@ -1854,7 +1865,7 @@ app.post("/upgrade-battle-pass/:token", checkRequestSize, verifyToken, async (re
       return res.status(401).json({ message: "Invalid request." });
     }
 
-    if (userRow.currentTier > 9) {
+    if (userRow.currentTier > maxbattlepasstier - 1) {
       return res.status(401).json({ message: "Max tier reached." });
     }
 
@@ -1932,7 +1943,7 @@ app.post("/upgrade-battle-pass/:token", checkRequestSize, verifyToken, async (re
   } catch (error) {
     await session.abortTransaction();
     console.error("Transaction aborted:", error);
-    res.status(500).json({ message: "Internal Server Error." });
+    res.status(500).json({ message: "error" });
   } finally {
     if (session) {
       session.endSession();
@@ -1942,13 +1953,6 @@ app.post("/upgrade-battle-pass/:token", checkRequestSize, verifyToken, async (re
 
 
 
-
-
-const loginreward = [
- { reward: { items: ["I015"], coins: 500, boxes: 8 } },
- //  { reward: { items: ["I011"] } },
-  // { reward: { coins: 1000, items: ["A032", "B023"] } },
-];
 
 app.post("/claim-login-reward/:token", checkRequestSize, verifyToken, async (req, res) => {
   const username = req.user.username;
@@ -1963,7 +1967,7 @@ app.post("/claim-login-reward/:token", checkRequestSize, verifyToken, async (req
    
     const claimedReward = await loginRewardsCollection.findOne({ username });
 
-    if (claimedReward) {
+    if (claimedReward || loginrewardactive === "false") {
       return res.status(401).json({ message: "Login reward already claimed." });
     }
 
@@ -2021,7 +2025,7 @@ app.post("/claim-login-reward/:token", checkRequestSize, verifyToken, async (req
   } catch (error) {
     await session.abortTransaction();
     console.error("Transaction aborted:", error);
-    res.status(500).json({ message: "Internal Server Error." });
+    res.status(500).json({ message: "error" });
   } finally {
     if (session) {
       session.endSession();
@@ -2113,7 +2117,7 @@ app.get("/compare-items/:username", async (req, res) => {
     res.json({ missingItems });
   } catch (error) {
     console.error("Error comparing items:", error);
-    res.status(500).json({ message: "Internal Server Error." });
+    res.status(500).json({ message: "ERROR" });
   }
 });
 
@@ -2365,7 +2369,7 @@ app.post("/send-friend-request/:token/:friendUsername", checkRequestSize, verify
   } catch (error) {
     console.error("Error sending friend request:", error);
     if (session) await session.abortTransaction();
-    res.status(500).json({ message: "Internal Server Error." });
+    res.status(500).json({ message: "error" });
   } finally {
     if (session) session.endSession();
   }
@@ -2415,12 +2419,12 @@ app.post("/accept-friend-request/:token/:friendUsername", checkRequestSize, veri
 
     if (userFriends.length >= friendMax) {
       await session.abortTransaction();
-      return res.status(400).json({ message: "You have reached the limit of 10 friends." });
+      return res.status(400).json({ message: "You have reached the limit of friends." });
     }
 
     if (friendFriends.length >= friendMax) {
       await session.abortTransaction();
-      return res.status(400).json({ message: "The sender has reached the limit of 10 friends." });
+      return res.status(400).json({ message: "The sender has reached the limit of friends." });
     }
 
     await friendsCollection.bulkWrite([
@@ -2452,7 +2456,7 @@ app.post("/accept-friend-request/:token/:friendUsername", checkRequestSize, veri
   } catch (error) {
     console.error("Error accepting friend request:", error);
     if (session) await session.abortTransaction();
-    res.status(500).json({ message: "Internal Server Error." });
+    res.status(500).json({ message: "error" });
   } finally {
     if (session) session.endSession();
   }
@@ -2494,7 +2498,7 @@ app.post("/reject-friend-request/:token/:friendUsername", checkRequestSize, veri
     res.json({ message: "Friend request rejected." });
   } catch (error) {
     console.error("Error rejecting friend request:", error);
-    res.status(500).json({ message: "Internal Server Error." });
+    res.status(500).json({ message: "error" });
   } finally {
     if (session) session.endSession();
   }
@@ -2546,7 +2550,7 @@ app.delete("/delete-friend/:token/:friendUsername", checkRequestSize, verifyToke
     res.json({ message: "Friend deleted." });
   } catch (error) {
     console.error("Error deleting friend:", error);
-    res.status(500).json({ message: "Internal Server Error." });
+    res.status(500).json({ message: "error" });
   } finally {
     if (session) session.endSession();
   }
@@ -2609,7 +2613,7 @@ app.get("/search-users/:token/:text", checkRequestSize, verifyToken, async (req,
     res.json(users);
   } catch (error) {
     console.error("Error searching for users:", error);
-    res.status(500).json({ message: "Internal Server Error." });
+    res.status(500).json({ message: "error" });
   }
 });
 
@@ -2632,7 +2636,7 @@ app.get("/get-friends/:token", checkRequestSize, verifyToken, async (req, res) =
     res.json({ friends, friendRequests });
   } catch (error) {
     console.error("Error retrieving friends and friend requests collection:", error);
-    res.status(500).json({ message: "Internal Server Error." });
+    res.status(500).json({ message: "error" });
   }
 });
 
@@ -2800,7 +2804,7 @@ app.use((err, req, res, next) => {
   console.error('An error occurred:', err);
 
   // Send an appropriate response based on the error
-  res.status(500).json({ error: 'Unexpected server error' });
+  res.status(500).json({ error: 'Unexpected error' });
 
        });
 
