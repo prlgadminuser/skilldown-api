@@ -1109,17 +1109,24 @@ app.get("/get-user-inventory/:token", checkRequestSize, verifyToken, async (req,
         }
       ).catch(() => null),
 
-      if (loginrewardactive) {
-      loginRewardsCollection.findOne(
-        { username },
-        {
-          projection: {
-            username: 1
+       if (loginrewardactive) {
+      promises.push(
+        loginRewardsCollection.findOne(
+          { username },
+          {
+            projection: {
+              username: 1
+            }
           }
-        }
-      ).catch(() => null)
-    ]);
+        ).catch(() => null)
+      );
+    } else {
+      // Add a resolved promise to maintain consistency
+      promises.push(Promise.resolve(null));
     }
+
+    // Wait for all promises to resolve
+    const [userRow, bpuserRow, onetimeRow] = await Promise.all(promises);
 
     if (!userRow) {
        return res.status(401).send("expired");
