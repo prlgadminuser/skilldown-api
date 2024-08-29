@@ -1128,7 +1128,7 @@ app.get("/get-user-inventory/:token", checkRequestSize, verifyToken, async (req,
     currentDate.setHours(0, 0, 0, 0);
     const currentTimestamp0am = currentDate.getTime();
 
-    const onetimereward = loginrewardactive ? onetimeRow ? onetimeRow.username || 0 : 0 : 4;
+    const onetimereward = loginrewardactive ? onetimeRow ? onetimeRow.username || 0 : 0 : 4; // onetimeRow ? onetimeRow.username || 0 : 0;
     const slpasstier = bpuserRow ? bpuserRow.currentTier || 0 : 0;
     const season_coins = bpuserRow ? bpuserRow.season_coins || 0 : 0;
     const bonusitem_damage = bpuserRow ? bpuserRow.bonusitem_damage || 0 : 0;
