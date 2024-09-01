@@ -268,29 +268,20 @@ app.use(
 );
 
 
-const sanitizeInputs = (inputs) => {
-  if (typeof inputs === "object" && inputs !== null) {
-    if (Array.isArray(inputs)) {
-      return inputs.every((item) => sanitizeInputs(item));
-    } else {
-      for (const key in inputs) {
-        if (inputs.hasOwnProperty(key)) {
-          if (key.includes('$')) {
-            return false; // Invalid input
-          }
-          if (!sanitizeInputs(inputs[key])) {
-            return false; // Invalid nested input
-          }
+function sanitizeInputs(input) {
+    if (typeof input === 'string') {
+        return input.replace(/\$/g, '');
+    } else if (typeof input === 'object') {
+        for (let key in input) {
+            if (typeof input[key] === 'string') {
+                input[key] = input[key].replace(/\$/g, '');
+            } else if (typeof input[key] === 'object') {
+                input[key] = sanitizeValues(input[key]);
+            }
         }
-      }
-      return true; // Valid input
     }
-  } else if (typeof inputs === "string") {
-    // Perform string sanitization
-    return true; // All strings are considered valid after sanitization
-  }
-  return true; // Primitive values are considered valid
-};
+    return input;
+}
 
 
 // Use the timeout middleware for all routes
