@@ -268,21 +268,22 @@ app.use(
 );
 
 
-function sanitizeInputs(input) {
+const sanitizeInputs = (input) => {
     if (typeof input === 'string') {
-        return input.replace(/\$/g, '');
-    } else if (typeof input === 'object') {
-        for (let key in input) {
-            if (typeof input[key] === 'string') {
-                input[key] = input[key].replace(/\$/g, '');
-            } else if (typeof input[key] === 'object') {
-                input[key] = sanitizeValues(input[key]);
-            }
-        }
-    }
-    return input;
-}
+        return !/\$/.test(input); // Return false if $ character is found
+    } else if (typeof input === 'object' && input !== null) {
+        // Create a new object or array to recursively check values
+        const isValid = Array.isArray(input) ? 
+            input.every(item => sanitizeInputs(item)) : // Check every item in an array
+            Object.keys(input).every(key => {
+                // Ensure the key does not contain $ and recursively check values
+                return !key.includes('$') && sanitizeInputs(input[key]);
+            });
 
+        return isValid;
+    }
+    return true; // Return true for primitive values other than strings and objects
+};
 
 // Use the timeout middleware for all routes
 //app.use(timeout(requestTimeoutMs));
