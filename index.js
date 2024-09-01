@@ -267,6 +267,29 @@ app.use(
   }),
 );
 
+const sanitizeInputsvtwo = (input) => {
+    if (typeof input === 'string') {
+        return input.replace(/\$/g, ''); // Remove $ characters from strings
+    } else if (typeof input === 'object' && input !== null) {
+        const sanitizedObject = Array.isArray(input) ? [] : {}; // Create a new sanitized object or array
+
+        for (const key in input) {
+            if (Object.hasOwnProperty.call(input, key)) {
+                const value = input[key];
+                
+                if (typeof value === 'string') {
+                    sanitizedObject[key] = value.replace(/\$/g, ''); // Remove $ characters from string values
+                } else if (typeof value === 'object') {
+                    sanitizedObject[key] = sanitizeInputs(value); // Recursively sanitize nested objects
+                } else {
+                    sanitizedObject[key] = value; // Copy other types of values as-is
+                }
+            }
+        }
+        return sanitizedObject;
+    }
+    return input; // Return unchanged input if it's not a string or object
+};
 
 const sanitizeInputs = (input) => {
     if (typeof input === 'string') {
