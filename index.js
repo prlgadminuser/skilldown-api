@@ -1641,22 +1641,14 @@ async function verifyToken(req, res, next) {
 async function checkRequestSize(req, res, next) {
     try {
 
-     if (!sanitizeInputs(req.params)) {
-      return res.status(400).send("Unauthorized tq");
-    }
-    if (!sanitizeInputs(req.query)) {
-      return res.status(400).send("Unauthorized oj");
-    }
-    if (!sanitizeInputs(req.body)) {
-      return res.status(400).send("Unauthorized fs");
-    }
+      if (!sanitizeInputs(req.params) || !sanitizeInputs(req.query) || !sanitizeInputs(req.body)) {
+            return res.status(400).send("Unauthorized");
+        }
 
-       req.params1 = sanitize(req.params);
+       req.params1 = mongoSanitize(req.params);
         req.query1 = mongoSanitize(req.query);
         req.body1 = mongoSanitize(req.body);
-
-      console.log(req.params1);
-       
+      
         // Check if sanitized inputs are valid
         if (!req.params1 || !req.query1 || !req.body1) {
             return res.status(400).send("Unauthorized ss");
