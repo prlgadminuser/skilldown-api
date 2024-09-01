@@ -556,18 +556,20 @@ app.post("/login", checkRequestSize, registerLimiter, async (req, res) => {
 app.get("/get-coins/:token", checkRequestSize, verifyToken, async (req, res) => {
   const token = req.params.token;
   const username = req.user.username;
+  const session = client.startSession();
 
   try {
-    session = client.startSession();
     session.startTransaction();
 
     // Check if the user exists in the database
     const user = await userCollection.findOne(
       { username },
       { projection: { _id: 0, username: 1, last_collected: 1 } },
+      { session }
     );
 
     if (!user) {
+      await session.abortTransaction();
       res.status(401).send("Invalid username or password");
       return;
     }
@@ -576,6 +578,7 @@ app.get("/get-coins/:token", checkRequestSize, verifyToken, async (req, res) => 
     const lastCollected = user.last_collected;
 
     if (!canCollectCoins(lastCollected)) {
+      await session.abortTransaction();
       res.status(400).send("You can collect coins only once every 24 hours.");
       return;
     }
@@ -584,16 +587,16 @@ app.get("/get-coins/:token", checkRequestSize, verifyToken, async (req, res) => 
     const coinsToAdd = generateRandomNumber(coinsmin, coinsmax);
 
     // Update user data in the database
-    const updateResult = await userCollection.updateOne(
+    await userCollection.updateOne(
       { username },
       {
         $inc: { coins: coinsToAdd },
         $set: { last_collected: Date.now() },
       },
+      { session }
     );
 
     await session.commitTransaction();
-
 
     // Send a Discord webhook notification
     //const coinsMessage = `${username} has received ${coinsToAdd} Coins.`;
@@ -607,12 +610,18 @@ app.get("/get-coins/:token", checkRequestSize, verifyToken, async (req, res) => 
     });
 
   } catch (error) {
+    console.error("Transaction error:", error);
     res.status(500).send("error");
-    await session.abortTransaction();
+    try {
+      await session.abortTransaction();
+    } catch (abortError) {
+      console.error("Abort error:", abortError);
+    }
+  } finally {
+    await session.endSession();
   }
-
-  await session.endSession();
 });
+
 
 // Route zum Abrufen der aktuellen Tagesrotation
 app.get("/daily-items/:token", checkRequestSize, verifyToken, async (req, res) => {
