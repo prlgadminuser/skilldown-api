@@ -60,6 +60,7 @@ const rateLimit = require("express-rate-limit");
 const axios = require("axios");
 const EventEmitter = require('events');
 const mongoSanitize = require('express-mongo-sanitize');
+var sanitize = require('mongo-sanitize');
 const http = require('http');
 const compression = require('compression');
 
@@ -1626,7 +1627,7 @@ async function checkRequestSize(req, res, next) {
       return res.status(400).send("Unauthorized fs");
     }
 
-       req.params1 = mongoSanitize(req.params);
+       req.params1 = sanitize(req.params);
         req.query1 = mongoSanitize(req.query);
         req.body1 = mongoSanitize(req.body);
 
