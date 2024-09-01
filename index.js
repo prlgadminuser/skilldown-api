@@ -1,4 +1,4 @@
-
+"use strict";
 
 const gift_dev_msg = "Gift from Liquem Games. Have fun!";
 const coinsmin = 20
