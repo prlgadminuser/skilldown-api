@@ -41,6 +41,46 @@ const loginreward = [
 
 
 
+async function isSuspiciousAccount(username) {
+  const threshold = 10; // Number of logins
+  const ipThreshold = 5; // Number of unique IP addresses
+
+  const user = await userCollection.findOne(
+    { username },
+    { projection: { login_attempts: 1 } }
+  );
+
+  if (!user || !user.login_attempts) {
+    return false; // No activity for the username
+  }
+
+  const loginAttempts = user.login_attempts;
+  const count = loginAttempts.length;
+  const ipAddresses = new Set(loginAttempts.map(attempt => attempt.ipAddress));
+
+  return count > threshold && ipAddresses.size > ipThreshold;
+}
+
+async function trackAccountActivity(username, ipAddress) {
+  const maxAttempts = 50; // Maximum number of login attempts to keep
+
+  // Update the user document by adding a new login attempt and limiting the array size
+  await userCollection.updateOne(
+    { username },
+    {
+      $push: {
+        login_attempts: {
+          $each: [{ timestamp: new Date(), ipAddress }],
+          $slice: -maxAttempts
+        }
+      }
+    }
+  );
+}
+
+
+
+
 // configurations
    
 const express = require("express");
