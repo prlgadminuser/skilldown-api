@@ -61,6 +61,47 @@ async function isSuspiciousAccount(username) {
   return count > threshold && ipAddresses.size > ipThreshold;
 }
 
+async function trackAccountActivity2(username, ipAddress) {
+  const maxAttempts = 50; // Maximum number of login attempts to keep
+
+  // Update the user document
+  await userCollection.updateOne(
+    { username },
+    [
+      {
+        $set: {
+          login_attempts: {
+            $concatArrays: [
+              {
+                $filter: {
+                  input: "$login_attempts",
+                  as: "attempt",
+                  cond: { $ne: ["$$attempt.ipAddress", ipAddress] } // Filter out attempts with the same IP
+                },
+              },
+              [{
+                timestamp: new Date(),
+                ipAddress
+              }]
+            ]
+          }
+        }
+      },
+      {
+        $set: {
+          login_attempts: {
+            $slice: [
+              { $slice: ["$login_attempts", -maxAttempts] },
+              -maxAttempts
+            ]
+          }
+        }
+      }
+    ]
+  );
+}
+
+
 async function trackAccountActivity(username, ipAddress) {
   const maxAttempts = 50; // Maximum number of login attempts to keep
 
