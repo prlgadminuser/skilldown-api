@@ -618,7 +618,7 @@ app.post("/register", checkRequestSize, registerLimiter, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error(error);
+    //console.error(error);
     res.status(500).send("Internal Server Error");
   }
 });
@@ -719,7 +719,7 @@ app.get("/get-coins/:token", checkRequestSize, verifyToken, async (req, res) => 
     try {
       await session.abortTransaction();
     } catch (abortError) {
-      console.error("Abort error:", abortError);
+    //  console.error("Abort error:", abortError);
     }
   } finally {
     await session.endSession();
@@ -749,7 +749,7 @@ app.get("/daily-items/:token", checkRequestSize, verifyToken, async (req, res) =
       server_nexttime: t0am
     });
   } catch (error) {
-    console.error("Error fetching daily items:", error);
+   // console.error("Error fetching daily items:", error);
     res.status(500).json({ message: "error" });
   }
 });
@@ -831,7 +831,7 @@ const user = await userCollection.findOne(
     res.json({ message: `Du hast ${selectedItem.name} gekauft.` });
   } catch (error) {
     await session.abortTransaction();
-    console.error("Transaction aborted:", error);
+   // console.error("Transaction aborted:", error);
     res.status(500).json({ message: "error" });
   } finally {
     if (session) {
@@ -866,7 +866,7 @@ app.post("/equip-gadget/:token/:gadget", checkRequestSize, verifyToken, async (r
       res.status(500).json({ message: "failed" });
     }
   } catch (error) {
-    console.error("Error:", error);
+    //console.error("Error:", error);
     res
       .status(500)
       .json({ message: "error" });
@@ -1031,7 +1031,7 @@ app.post("/equip-color/:token/:color", checkRequestSize, verifyToken, async (req
       res.status(500).json({ message: "Failed" });
     }
   } catch (error) {
-    console.error("Error:", error);
+    //console.error("Error:", error);
     res
       .status(500)
       .json({ message: "error" });
@@ -1064,7 +1064,7 @@ app.post("/equip-hat-color/:token/:color", checkRequestSize, verifyToken, async 
       res.status(500).json({ message: "failed" });
     }
   } catch (error) {
-    console.error("Error:", error);
+   // console.error("Error:", error);
     res
       .status(500)
       .json({ message: "error" });
@@ -1097,7 +1097,7 @@ app.post("/equip-body-color/:token/:color", checkRequestSize, verifyToken, async
       res.status(500).json({ message: "failed" });
     }
   } catch (error) {
-    console.error("Error:", error);
+    //console.error("Error:", error);
     res
       .status(500)
       .json({ message: "error" });
@@ -1130,7 +1130,7 @@ app.post("/equip-banner-color/:token/:color", checkRequestSize, verifyToken, asy
       res.status(500).json({ message: "failed" });
     }
   } catch (error) {
-    console.error("Error:", error);
+  //  console.error("Error:", error);
     res
       .status(500)
       .json({ message: "error" });
@@ -1169,7 +1169,7 @@ app.post("/reset-equipped-items/:token", checkRequestSize, verifyToken, async (r
       });
     }
   } catch (error) {
-    console.error("Error:", error);
+   // console.error("Error:", error);
     res.status(500).json({
       message: "error",
     });
@@ -1285,7 +1285,7 @@ app.get("/get-user-inventory/:token", checkRequestSize, verifyToken, async (req,
     // Send JSON response
     res.json(response);
   } catch (error) {
-    console.error('Error fetching user inventory:', error);
+  //  console.error('Error fetching user inventory:', error);
     if (!res.headersSent) {
       res.status(500).json({ message: "An error occurred while fetching user inventory." });
     }
@@ -1341,7 +1341,7 @@ app.get("/get-matchstats/:token", checkRequestSize, verifyToken, async (req, res
 
     res.json(response);
   } catch (error) {
-    console.error(error);
+    //console.error(error);
     res.status(500).json({ message: "error" });
   }
 });
@@ -1415,7 +1415,7 @@ app.get("/user-profile/:token/:usernamed", checkRequestSize, verifyToken, async 
       // country_code: userRow.country_code,
     });
   } catch (error) {
-    console.error(error);
+   // console.error(error);
     res.status(500).json({ message: "error" });
   }
 });
@@ -1482,7 +1482,7 @@ app.get("/verify-token/:token", checkRequestSize, verifyToken, async (req, res) 
       message: `${username}`,
     });
   } catch (error) {
-    console.error("Internal Server Error:", error);
+   // console.error("Internal Server Error:", error);
     res.status(500).json({ error: "error" });
   }
 });
