@@ -2807,7 +2807,7 @@ const globalListeners = {
 
 // Attach global listeners
 Object.keys(globalListeners).forEach(event => {
-  eventEmitterInstance.on(event, globalListeners[event]);
+  eventEmitter.on(event, globalListeners[event]);
 });
 
 app.get('/events/:token', checkRequestSize, verifyToken, (req, res) => {
