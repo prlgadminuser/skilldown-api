@@ -139,7 +139,7 @@ const fs = require("fs");
 const readline = require("readline");
 const rateLimit = require("express-rate-limit");
 const axios = require("axios");
-const EventEmitter = require('events');
+const EventEmitter = require('events').EventEmitter;
 const mongoSanitize = require('express-mongo-sanitize');
 var sanitize = require('mongo-sanitize');
 const http = require('http');
@@ -2767,10 +2767,12 @@ app.get("/get-friends/:token", checkRequestSize, verifyToken, async (req, res) =
 eventEmitter.setMaxListeners(3);
 
 const activeConnections = new Map();
+const CONNECTION_TIMEOUT = 1 * 60 * 1000; // 5 minutes
 
 // Define global event listeners
 const globalListeners = {
   friendRequestSent: (data) => {
+    console.log('Processing friendRequestSent:', data);
     activeConnections.forEach((connection, key) => {
       if (data.to === connection.username) {
         const timestamp = new Date().toISOString();
@@ -2783,18 +2785,20 @@ const globalListeners = {
     });
   },
   shopUpdate: (data) => {
-    console.log('Emitting shopUpdate:', data); // Debugging line
+    console.log('Processing shopUpdate:', data);
     activeConnections.forEach((connection, key) => {
       if (connection.res && typeof connection.res.write === 'function') {
         connection.res.write(`data: ${JSON.stringify(data)}\n\n`);
+        console.log('Emitted shopUpdate to:', key);
       }
     });
   },
   maintenanceUpdate: (data) => {
-    console.log('Emitting maintenanceUpdate:', data); // Debugging line
+    console.log('Processing maintenanceUpdate:', data);
     activeConnections.forEach((connection, key) => {
       if (connection.res && typeof connection.res.write === 'function') {
         connection.res.write(`data: ${JSON.stringify(data)}\n\n`);
+        console.log('Emitted maintenanceUpdate to:', key);
       }
     });
     eventEmitter.removeAllListeners(); // Clean up listeners globally
@@ -2803,21 +2807,22 @@ const globalListeners = {
 
 // Attach global listeners
 Object.keys(globalListeners).forEach(event => {
-  eventEmitter.on(event, globalListeners[event]);
+  eventEmitterInstance.on(event, globalListeners[event]);
 });
 
-app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
+app.get('/events/:token', checkRequestSize, verifyToken, (req, res) => {
   const username = req.user.username;
   const ip = req.headers['true-client-ip'] || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-
   const connectionKey = `${username}_${ip}`;
 
   // End any existing connection for this user and IP
   if (activeConnections.has(connectionKey)) {
     activeConnections.get(connectionKey).res.end();
+    activeConnections.delete(connectionKey);
+    console.log('Replaced existing connection for:', connectionKey);
   }
 
-  const clientConnection = { username, res };
+  const clientConnection = { username, res, lastActive: Date.now() };
 
   // Track the new connection
   activeConnections.set(connectionKey, clientConnection);
@@ -2833,8 +2838,23 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
   req.on('close', () => {
     activeConnections.delete(connectionKey);
     res.end();
+    console.log('Client disconnected:', connectionKey);
   });
 });
+
+// Periodically check for and clean up stale connections
+const cleanupStaleConnections = () => {
+  const now = Date.now();
+  activeConnections.forEach((connection, key) => {
+    if (now - connection.lastActive > CONNECTION_TIMEOUT) {
+      connection.res.end();
+      activeConnections.delete(key);
+      console.log('Closed stale connection:', key);
+    }
+  });
+};
+
+setInterval(cleanupStaleConnections, CONNECTION_TIMEOUT);
 
 // Function to watch MongoDB items and emit events
 async function watchItemShop() {
