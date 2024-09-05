@@ -157,7 +157,8 @@ const webhook = new Discord.WebhookClient({
 
 const app = express();
 exports.app = app;
-
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
 
 const port = process.env.PORT || 3000;
 //const http = require('http').createServer(app);
