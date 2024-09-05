@@ -2779,7 +2779,6 @@ const globalListeners = {
         const eventData = { ...data, timestamp };
         if (connection.res && typeof connection.res.write === 'function') {
           connection.res.write(`data: ${JSON.stringify(eventData)}\n\n`);
-          console.log('Emitted friendRequestSent to:', key);
           resetTimeout(key); // Reset timeout on activity
         }
       }
@@ -2878,7 +2877,6 @@ async function watchItemShop() {
 
       if (documentId === dailyItemsId) {
         eventEmitter.emit('shopUpdate', { update: "shopupdate", timestamp });
-        console.log("Daily items updated.");
       } else if (documentId === maintenanceId) {
         const maintenanceStatus = change.fullDocument.status; // Adjust field name if needed
 
