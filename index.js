@@ -144,7 +144,7 @@ const mongoSanitize = require('express-mongo-sanitize');
 var sanitize = require('mongo-sanitize');
 const http = require('http');
 const compression = require('compression');
-
+const WebSocket = require("ws");
 
 const webhookURL = process.env.DISCORD_KEY;
 const tokenkey = process.env.TOKEN_KEY;
