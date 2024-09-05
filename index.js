@@ -2767,7 +2767,7 @@ app.get("/get-friends/:token", checkRequestSize, verifyToken, async (req, res) =
 eventEmitter.setMaxListeners(3);
 
 const activeConnections = new Map();
-const CONNECTION_TIMEOUT = 1 * 60 * 1000; // 5 minutes
+const CONNECTION_TIMEOUT = 5 * 60 * 1000; // 5 minutes
 
 // Define global event listeners
 const globalListeners = {
@@ -2777,9 +2777,13 @@ const globalListeners = {
       if (data.to === connection.username) {
         const timestamp = new Date().toISOString();
         const eventData = { ...data, timestamp };
-        if (connection.res && typeof connection.res.write === 'function') {
-          connection.res.write(`data: ${JSON.stringify(eventData)}\n\n`);
-          console.log('Emitted friendRequestSent to:', key);
+        try {
+          if (connection.res && !connection.res.finished) {
+            connection.res.write(`data: ${JSON.stringify(eventData)}\n\n`);
+            console.log('Emitted friendRequestSent to:', key);
+          }
+        } catch (err) {
+          console.error('Error sending friendRequestSent:', err);
         }
       }
     });
@@ -2787,21 +2791,30 @@ const globalListeners = {
   shopUpdate: (data) => {
     console.log('Processing shopUpdate:', data);
     activeConnections.forEach((connection, key) => {
-      if (connection.res && typeof connection.res.write === 'function') {
-        connection.res.write(`data: ${JSON.stringify(data)}\n\n`);
-        console.log('Emitted shopUpdate to:', key);
+      try {
+        if (connection.res && !connection.res.finished) {
+          connection.res.write(`data: ${JSON.stringify(data)}\n\n`);
+          console.log('Emitted shopUpdate to:', key);
+        }
+      } catch (err) {
+        console.error('Error sending shopUpdate:', err);
       }
     });
   },
   maintenanceUpdate: (data) => {
     console.log('Processing maintenanceUpdate:', data);
     activeConnections.forEach((connection, key) => {
-      if (connection.res && typeof connection.res.write === 'function') {
-        connection.res.write(`data: ${JSON.stringify(data)}\n\n`);
-        console.log('Emitted maintenanceUpdate to:', key);
+      try {
+        if (connection.res && !connection.res.finished) {
+          connection.res.write(`data: ${JSON.stringify(data)}\n\n`);
+          console.log('Emitted maintenanceUpdate to:', key);
+        }
+      } catch (err) {
+        console.error('Error sending maintenanceUpdate:', err);
       }
     });
-    eventEmitter.removeAllListeners(); // Clean up listeners globally
+    // Perform clean-up if necessary
+    eventEmitter.removeAllListeners('maintenanceUpdate');
   }
 };
 
@@ -2817,7 +2830,10 @@ app.get('/events/:token', checkRequestSize, verifyToken, (req, res) => {
 
   // End any existing connection for this user and IP
   if (activeConnections.has(connectionKey)) {
-    activeConnections.get(connectionKey).res.end();
+    const existingConnection = activeConnections.get(connectionKey);
+    if (existingConnection.res && !existingConnection.res.finished) {
+      existingConnection.res.end();
+    }
     activeConnections.delete(connectionKey);
     console.log('Replaced existing connection for:', connectionKey);
   }
@@ -2834,12 +2850,16 @@ app.get('/events/:token', checkRequestSize, verifyToken, (req, res) => {
 
   res.write('data: connected\n\n');
 
-  // Cleanup on client disconnect
+  // Update last active time on new activity
+  const updateLastActive = () => clientConnection.lastActive = Date.now();
+
   req.on('close', () => {
     activeConnections.delete(connectionKey);
     res.end();
     console.log('Client disconnected:', connectionKey);
   });
+
+  req.on('data', updateLastActive); // in case client sends data, update the activity timestamp
 });
 
 // Periodically check for and clean up stale connections
@@ -2847,7 +2867,9 @@ const cleanupStaleConnections = () => {
   const now = Date.now();
   activeConnections.forEach((connection, key) => {
     if (now - connection.lastActive > CONNECTION_TIMEOUT) {
-      connection.res.end();
+      if (connection.res && !connection.res.finished) {
+        connection.res.end();
+      }
       activeConnections.delete(key);
       console.log('Closed stale connection:', key);
     }
