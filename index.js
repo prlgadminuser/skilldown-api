@@ -139,7 +139,7 @@ const fs = require("fs");
 const readline = require("readline");
 const rateLimit = require("express-rate-limit");
 const axios = require("axios");
-const EventEmitter = require('events').EventEmitter;
+const EventEmitter = require('events');
 const mongoSanitize = require('express-mongo-sanitize');
 var sanitize = require('mongo-sanitize');
 const http = require('http');
@@ -2852,7 +2852,7 @@ app.get('/events/:token', checkRequestSize, verifyToken, (req, res) => {
   res.write('data: connected\n\n');
 
   // Update last active time on new activity
-  const updateLastActive = () => clientConnection.lastActive = Date.now();
+  const updateLastActive = () => clientConnection.lastActive = Date.now() + 60000;
   req.on('data', updateLastActive); // Update timestamp if client sends data
   req.on('close', () => {
     activeConnections.delete(connectionKey);
