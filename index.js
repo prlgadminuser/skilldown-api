@@ -2853,14 +2853,12 @@ app.get('/events/:token', checkRequestSize, verifyToken, (req, res) => {
 
   // Update last active time on new activity
   const updateLastActive = () => clientConnection.lastActive = Date.now();
-
+  req.on('data', updateLastActive); // Update timestamp if client sends data
   req.on('close', () => {
     activeConnections.delete(connectionKey);
     res.end();
     console.log('Client disconnected:', connectionKey);
   });
-
-  req.on('data', updateLastActive); // in case client sends data, update the activity timestamp
 });
 
 // Periodically check for and clean up stale connections
@@ -2875,9 +2873,12 @@ const cleanupStaleConnections = () => {
       console.log('Closed stale connection:', key);
     }
   });
+  // Schedule next cleanup
+  setTimeout(cleanupStaleConnections, CONNECTION_TIMEOUT);
 };
 
-setInterval(cleanupStaleConnections, CONNECTION_TIMEOUT);
+// Start the initial cleanup
+cleanupStaleConnections();
 
 // Function to watch MongoDB items and emit events
 async function watchItemShop() {
