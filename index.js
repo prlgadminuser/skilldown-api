@@ -281,7 +281,7 @@ app.use((req, res, next) => {
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
     next();
   } else {
-    console.log("Rejected request from:", origin);
+   // console.log("Rejected request from:", origin);
     return res.status(403).json({ error: "no contents" });
   }
 });
