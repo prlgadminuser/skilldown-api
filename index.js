@@ -2819,7 +2819,6 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
   }
 
   const clientConnection = { username, res, timeout: setTimeout(() => {
-    console.log('Closing inactive connection:', connectionKey);
     res.end();
     activeConnections.delete(connectionKey);
   }, TIMEOUT) };
