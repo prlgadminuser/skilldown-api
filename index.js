@@ -584,7 +584,6 @@ app.post("/register", checkRequestSize, registerLimiter, async (req, res) => {
       const countryCode = await getCountryCode(req.ip);
       finalCountryCode = countryCode || finalCountryCode; // Update only if countryCode is truthy
     } catch (error) {
-      console.error("Error getting country code:", error.message);
     }
 
     // Check account creation limit here
@@ -614,7 +613,6 @@ app.post("/register", checkRequestSize, registerLimiter, async (req, res) => {
 
         res.status(201).json({ token });
       } catch (error) {
-        console.error(error);
         res.status(500).send("Internal Server Error");
       }
     });
@@ -1646,7 +1644,6 @@ app.get("/global-place/:token", checkRequestSize, verifyToken, async (req, res) 
     // Add 1 to the count to get the correct place (because the user is one of those in the ranking)
     res.json({ place: place + 1 });
   } catch (error) {
-    console.error("Internal server error:", error);
     res.status(500).json({ message: "error" });
   }
 });
@@ -1832,7 +1829,6 @@ app.post("/buy-rarity-box/:token", checkRequestSize, verifyToken, async (req, re
         return res.json(rewards);
     } catch (error) {
         await abortTransaction(session);
-        console.error("Transaction aborted:", error);
         return res.status(500).json({ message: "error" });
     } finally {
         endSession(session);
@@ -2064,7 +2060,6 @@ app.post("/upgrade-battle-pass/:token", checkRequestSize, verifyToken, async (re
     });
   } catch (error) {
     await session.abortTransaction();
-    console.error("Transaction aborted:", error);
     res.status(500).json({ message: "error" });
   } finally {
     if (session) {
@@ -2146,7 +2141,6 @@ app.post("/claim-login-reward/:token", checkRequestSize, verifyToken, async (req
     });
   } catch (error) {
     await session.abortTransaction();
-    console.error("Transaction aborted:", error);
     res.status(500).json({ message: "error" });
   } finally {
     if (session) {
@@ -2191,7 +2185,6 @@ function getCountryCode(userIp) {
       return "Unknown";
     })
     .catch((error) => {
-      console.error("Error while detecting the country:", error);
       return "Unknown";
     });
 }
@@ -2238,7 +2231,6 @@ app.get("/compare-items/:username", async (req, res) => {
 
     res.json({ missingItems });
   } catch (error) {
-    console.error("Error comparing items:", error);
     res.status(500).json({ message: "ERROR" });
   }
 });
@@ -2489,7 +2481,6 @@ app.post("/send-friend-request/:token/:friendUsername", checkRequestSize, verify
     eventEmitter.emit('friendRequestSent', { type: "send", from: username, to: friendUsername });
     res.json({ message: "Friend request sent." });
   } catch (error) {
-    console.error("Error sending friend request:", error);
     if (session) await session.abortTransaction();
     res.status(500).json({ message: "error" });
   } finally {
@@ -2576,7 +2567,6 @@ app.post("/accept-friend-request/:token/:friendUsername", checkRequestSize, veri
     eventEmitter.emit('friendRequestSent', { type: "accept", from: username, to: friendUsername });
     res.json({ message: "Friend request accepted." });
   } catch (error) {
-    console.error("Error accepting friend request:", error);
     if (session) await session.abortTransaction();
     res.status(500).json({ message: "error" });
   } finally {
@@ -2619,7 +2609,6 @@ app.post("/reject-friend-request/:token/:friendUsername", checkRequestSize, veri
     await session.commitTransaction();
     res.json({ message: "Friend request rejected." });
   } catch (error) {
-    console.error("Error rejecting friend request:", error);
     res.status(500).json({ message: "error" });
   } finally {
     if (session) session.endSession();
@@ -2671,7 +2660,6 @@ app.delete("/delete-friend/:token/:friendUsername", checkRequestSize, verifyToke
     await session.commitTransaction();
     res.json({ message: "Friend deleted." });
   } catch (error) {
-    console.error("Error deleting friend:", error);
     res.status(500).json({ message: "error" });
   } finally {
     if (session) session.endSession();
@@ -2734,7 +2722,6 @@ app.get("/search-users/:token/:text", checkRequestSize, verifyToken, async (req,
 
     res.json(users);
   } catch (error) {
-    console.error("Error searching for users:", error);
     res.status(500).json({ message: "error" });
   }
 });
@@ -2757,7 +2744,6 @@ app.get("/get-friends/:token", checkRequestSize, verifyToken, async (req, res) =
 
     res.json({ friends, friendRequests });
   } catch (error) {
-    console.error("Error retrieving friends and friend requests collection:", error);
     res.status(500).json({ message: "error" });
   }
 });
@@ -2785,7 +2771,6 @@ const globalListeners = {
     });
   },
   shopUpdate: (data) => {
-    console.log('Emitting shopUpdate:', data); // Debugging line
     activeConnections.forEach((connection, key) => {
       if (connection.res && typeof connection.res.write === 'function') {
         connection.res.write(`data: ${JSON.stringify(data)}\n\n`);
@@ -2794,7 +2779,6 @@ const globalListeners = {
     });
   },
   maintenanceUpdate: (data) => {
-    console.log('Emitting maintenanceUpdate:', data); // Debugging line
     activeConnections.forEach((connection, key) => {
       if (connection.res && typeof connection.res.write === 'function') {
         connection.res.write(`data: ${JSON.stringify(data)}\n\n`);
@@ -2816,7 +2800,6 @@ function resetTimeout(key) {
     const connection = activeConnections.get(key);
     clearTimeout(connection.timeout);
     connection.timeout = setTimeout(() => {
-      console.log('Closing inactive connection:', key);
       connection.res.end();
       activeConnections.delete(key);
     }, TIMEOUT);
@@ -2887,7 +2870,6 @@ async function watchItemShop() {
           maintenanceMode = false;
         }
       } else {
-        console.log("Unexpected document ID:", documentId);
       }
     });
 
@@ -2918,4 +2900,3 @@ app.use((err, req, res, next) => {
       console.log(`Server is running on port ${port}`);
     });
   
-
