@@ -452,10 +452,12 @@ rl.on("line", (input) => {
 */
 
 // Replace <password> with the actual password for the Liquem user
-const password = process.env.DB_KEY
+//const password = process.env.DB_KEY
+const password = "8RLj5Vr3F6DRBAYc"
 const encodedPassword = encodeURIComponent(password);
 
-const uri = `mongodb+srv://sr-server-user:${encodedPassword}@cluster0.ed4zami.mongodb.net/?retryWrites=true&w=majority`;
+//const uri = `mongodb+srv://sr-server-user:${encodedPassword}@cluster0.ed4zami.mongodb.net/?retryWrites=true&w=majority`;
+const uri = `mongodb+srv://Liquem:${encodedPassword}@cluster0.ed4zami.mongodb.net/?retryWrites=true&w=majority`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
