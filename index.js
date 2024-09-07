@@ -9,6 +9,7 @@ const rarity_legendary = 0.995 //0.995
 const allgadgets = 3
 const friendMax = 30
 const maxaccountlimit = 1
+const season_end = 1728312591
 
 
 const loginrewardactive = true
@@ -38,6 +39,8 @@ const loginreward = [
  //  { reward: { items: ["I011"] } },
   // { reward: { coins: 1000, items: ["A032", "B023"] } },
 ];
+
+
 
 
 
@@ -1280,7 +1283,8 @@ app.get("/get-user-inventory/:token", checkRequestSize, verifyToken, async (req,
       server_timestamp: currentTimestampInGMT,
       server_nexttime: currentTimestamp0am,
       lbtheme: lobbytheme, // Ensure lobbytheme is defined elsewhere
-      onetimereward
+      season_end: season_end,
+      onetimereward,
     };
 
     // Send JSON response
