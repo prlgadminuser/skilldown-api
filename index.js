@@ -269,6 +269,8 @@ const allowedOrigins = [
   "https://crazygames.com",
    "https://crazygames.com/game/skilled-royale",
    "https://html-classic.itch.zone",
+  "https://liquemgames.itch.io/sr,
+  "http://liquemgames.itch.io/sr,
    "https://turbowarp.org",
    "https://s-ri0p-delgae.netlify.app",
 ];
