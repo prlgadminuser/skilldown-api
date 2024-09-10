@@ -1433,6 +1433,11 @@ const updateHighscores = async () => {
   try {
     const highscores = await userCollection
       .aggregate([
+        {
+          $match: {
+            username: { $ne: "Liquem" } // Exclude player with username "Liquem"
+          }
+        },
         { 
           $sort: { 
             sp: -1 
