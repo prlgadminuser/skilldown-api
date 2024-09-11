@@ -588,8 +588,8 @@ app.post("/register", checkRequestSize, registerLimiter, async (req, res) => {
 
     // Use getCountryCode function to get the country code based on the user's IP address
     try {
-     // const countryCode = await getCountryCode(req.ip);
-       const countryCode = req.headers['cf-ipcountry']
+    const countryCode = await getCountryCode(req.ip);
+      // const countryCode = req.headers['cf-ipcountry']
       finalCountryCode = countryCode || finalCountryCode; // Update only if countryCode is truthy
     } catch (error) {
     }
