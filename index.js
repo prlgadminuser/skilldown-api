@@ -1734,7 +1734,7 @@ async function verifyToken(req, res, next) {
 async function checkRequestSize(req, res, next) {
     try {
 
-      console.log(req.headers)
+     // console.log(req.headers)
 
       if (!sanitizeInputs(req.params) || !sanitizeInputs(req.query) || !sanitizeInputs(req.body)) {
             return res.status(400).send("Unauthorized");
