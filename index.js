@@ -1,6 +1,6 @@
 "use strict";
 
-const gift_dev_msg = "Gift from Liquem Games. Have fun!";
+const gift_dev_msg = "Gift from Liquem Games. Have fun! and rate the game on itch if you like it";
 const coinsmin = 20
 const coinsmax = 35
 const lobbytheme = 2
