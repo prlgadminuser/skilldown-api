@@ -1287,6 +1287,7 @@ app.get("/get-user-inventory/:token", checkRequestSize, verifyToken, async (req,
       server_nexttime: currentTimestamp0am,
       lbtheme: lobbytheme, // Ensure lobbytheme is defined elsewhere
       season_end: season_end,
+      battlePassTiers,
       onetimereward,
     };
 
