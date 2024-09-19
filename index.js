@@ -3,7 +3,7 @@
 const gift_dev_msg = "Gift from Liquem Games. Have fun! and rate the game on itch if you like it";
 const coinsmin = 20
 const coinsmax = 35
-const lobbytheme = 3
+const lobbytheme = 2
 const rarity_normal = 0.8 //0.8
 const rarity_legendary = 0.995 //0.995
 const allgadgets = 3
