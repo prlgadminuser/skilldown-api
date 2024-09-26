@@ -1917,7 +1917,7 @@ function getUnownedItems(allItemIds, ownedItems) {
 }
 
 function getRandomCoinsReward() {
-  return Math.floor(Math.random() * 50) + 1;
+  return Math.floor(Math.random() * 30) + 15;
 }
 
 function getRandomCoinsReward2() {
