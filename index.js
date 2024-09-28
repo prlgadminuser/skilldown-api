@@ -8,7 +8,7 @@ const rarity_normal = 0.8 //0.8
 const rarity_legendary = 0.995 //0.995
 const allgadgets = 3
 const friendMax = 30
-const maxaccountlimit = 5
+const maxaccountlimit = 1
 const season_end = 1729713600
 
 
