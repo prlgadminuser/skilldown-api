@@ -765,7 +765,7 @@ app.get("/daily-items/:token", checkRequestSize, verifyToken, async (req, res) =
 
 
 
-app.post("/buy-item2/:token/:itemId", checkRequestSize, verifyToken, async (req, res) => {
+app.post("/buy-item/:token/:itemId", checkRequestSize, verifyToken, async (req, res) => {
   const { itemId } = req.params;
   const username = req.user.username;
 
@@ -850,7 +850,7 @@ const user = await userCollection.findOne(
 });
 
 
-app.post("/buy-item/:token/:itemId", checkRequestSize, verifyToken, async (req, res) => {
+app.post("/buy-item2/:token/:itemId", checkRequestSize, verifyToken, async (req, res) => {
   const { itemId } = req.params;
   const username = req.user.username;
 
