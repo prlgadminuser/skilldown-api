@@ -2748,7 +2748,7 @@ app.get("/search-users/:token/:text", checkRequestSize, verifyToken, async (req,
 
 
 
-app.get("/get-friends/:token", checkRequestSize, verifyToken, async (req, res) => {
+/*app.get("/get-friends/:token", checkRequestSize, verifyToken, async (req, res) => {
   const username = req.user.username;
 
   try {
@@ -2786,9 +2786,26 @@ app.get("/get-friends/:token", checkRequestSize, verifyToken, async (req, res) =
   }
 });
 
+*/
 
 
+app.get("/get-friends/:token", checkRequestSize, verifyToken, async (req, res) => {
+  const username = req.user.username;
 
+  try {
+    const userFriendsData = await friendsCollection.findOne(
+      { username },
+      { projection: { friends: 1, friendRequests: 1 } }
+    );
+
+    const friends = userFriendsData?.friends || [];
+    const friendRequests = userFriendsData?.friendRequests || [];
+
+    res.json({ friends, friendRequests });
+  } catch (error) {
+    res.status(500).json({ message: "error" });
+  }
+});
 
  
 eventEmitter.setMaxListeners(3);
