@@ -765,7 +765,7 @@ app.get("/daily-items/:token", checkRequestSize, verifyToken, async (req, res) =
 
 
 
-app.post("/buy-item/:token/:itemId", checkRequestSize, verifyToken, async (req, res) => {
+app.post("/buy-item2/:token/:itemId", checkRequestSize, verifyToken, async (req, res) => {
   const { itemId } = req.params;
   const username = req.user.username;
 
@@ -804,6 +804,102 @@ const user = await userCollection.findOne(
     const itemshop = await shopcollection.findOne({ _id: "dailyItems" });
      
    const selectedItem = Object.values(itemshop.items).find(i => i.itemId === itemId);
+
+    if (!selectedItem) {
+      return res.status(401).json({ message: "Item is not valid." });
+      }
+
+    if ((userRow.coins || 0) < selectedItem.price) {
+      return res
+        .status(401)
+        .json({ message: "Not enough coins to buy the item." });
+    }
+
+    await session.commitTransaction();
+
+    // Update the user's coins and add the purchased item to the items array
+     if (selectedItem.price > 0) {
+    await userCollection.updateOne(
+      { username },
+      {
+        $inc: { coins: -selectedItem.price },
+        $push: { items: itemId },
+      },
+      { session }
+    );
+  } else {
+    await userCollection.updateOne(
+      { username },
+      {
+        $push: { items: itemId },
+      },
+      { session }
+    );
+  }
+
+    res.json({ message: `Du hast ${selectedItem.name} gekauft.` });
+  } catch (error) {
+    await session.abortTransaction();
+   // console.error("Transaction aborted:", error);
+    res.status(500).json({ message: "error" });
+  } finally {
+    if (session) {
+      session.endSession();
+    }
+  }
+});
+
+
+app.post("/buy-item/:token/:itemId", checkRequestSize, verifyToken, async (req, res) => {
+  const { itemId } = req.params;
+  const username = req.user.username;
+
+  let session;
+
+  try {
+    session = client.startSession();
+    session.startTransaction();
+
+const user = await userCollection.findOne(
+  { 
+    username, 
+    items: { 
+      $exists: true, 
+      $elemMatch: { $eq: itemId } 
+    } 
+  }
+ );
+
+     if (user) {
+      return res.status(401).json({ message: "You already own this item." });
+    }
+
+
+     
+    const userRow = await userCollection.findOne(
+      { username: username },
+      {
+        projection: {
+          coins: 1,
+        },
+      },
+    );
+ 
+
+    const itemshop = await shopcollection.findOne(
+      { _id: "dailyItems", [`items.${itemId}`]: { $exists: true } },
+      {
+        projection: { [`items.${itemId}`]: 1 },
+        session
+      }
+    );
+
+    if (!itemshop || !itemshop.items || !itemshop.items[itemId]) {
+      await session.abortTransaction();
+      return res.status(401).json({ message: "Item not found in the shop." });
+    }
+
+    const selectedItem = itemshop.items[itemId];
 
     if (!selectedItem) {
       return res.status(401).json({ message: "Item is not valid." });
