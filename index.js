@@ -762,9 +762,110 @@ app.get("/daily-items/:token", checkRequestSize, verifyToken, async (req, res) =
   }
 });
 
-
-
 app.post("/buy-item/:token/:itemId", checkRequestSize, verifyToken, async (req, res) => {
+  const { itemId } = req.params;
+  const username = req.user.username;
+
+  let session;
+
+  try {
+    // Start session and transaction
+    session = client.startSession();
+    session.startTransaction();
+
+    // Check if the user already owns the item
+    const user = await userCollection.findOne(
+      { 
+        username, 
+        items: { $exists: true, $elemMatch: { $eq: itemId } } 
+      },
+      { session }
+    );
+
+    if (user) {
+      await session.abortTransaction();
+      return res.status(401).json({ message: "You already own this item." });
+    }
+
+    // Retrieve user's coin balance
+    const userRow = await userCollection.findOne(
+      { username: username },
+      {
+        projection: {
+          coins: 1,
+        },
+        session
+      }
+    );
+
+    if (!userRow) {
+      await session.abortTransaction();
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    // Check if the item exists in the shop
+    const itemshop = await shopcollection.findOne(
+      { _id: "dailyItems", "items.itemId": itemId },
+      { session }
+    );
+
+    if (!itemshop) {
+      await session.abortTransaction();
+      return res.status(401).json({ message: "Item is not valid." });
+    }
+
+    // Find the specific item within the items array
+    const selectedItem = itemshop.items.find(i => i.itemId === itemId);
+
+    if (!selectedItem) {
+      await session.abortTransaction();
+      return res.status(401).json({ message: "Item not found in the shop." });
+    }
+
+    // Check if the user has enough coins to purchase the item
+    if ((userRow.coins || 0) < selectedItem.price) {
+      await session.abortTransaction();
+      return res.status(401).json({ message: "Not enough coins to buy the item." });
+    }
+
+    // Deduct coins and add item to the user's inventory
+    const updateQuery = {
+      $push: { items: itemId },
+    };
+
+    if (selectedItem.price > 0) {
+      updateQuery.$inc = { coins: -selectedItem.price };
+    }
+
+    await userCollection.updateOne(
+      { username },
+      updateQuery,
+      { session }
+    );
+
+    // Commit the transaction
+    await session.commitTransaction();
+
+    // Send successful purchase response
+    res.json({ message: `You have purchased ${selectedItem.name}.` });
+    
+  } catch (error) {
+    // Abort transaction in case of error
+    if (session) {
+      await session.abortTransaction();
+    }
+
+    res.status(500).json({ message: "An error occurred during the transaction." });
+  } finally {
+    // End session
+    if (session) {
+      session.endSession();
+    }
+  }
+});
+
+
+/*app.post("/buy-item/:token/:itemId", checkRequestSize, verifyToken, async (req, res) => {
   const { itemId } = req.params;
   const username = req.user.username;
 
@@ -847,6 +948,8 @@ const user = await userCollection.findOne(
     }
   }
 });
+
+*/
 
 
 app.post("/equip-gadget/:token/:gadget", checkRequestSize, verifyToken, async (req, res) => {
