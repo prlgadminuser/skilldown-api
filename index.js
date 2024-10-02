@@ -2760,23 +2760,26 @@ app.get("/get-friends/:token", checkRequestSize, verifyToken, async (req, res) =
     const friends = userFriendsData?.friends || [];
     const friendRequests = userFriendsData?.friendRequests || [];
 
-    // Fetch details for each friend from the users collection
-    const friendsWithDetails = await Promise.all(
-      friends.map(async (friendUsername) => {
-        const friendData = await userCollection.findOne(
-          { username: friendUsername },
-          { projection: { sp: 1 } }  // Select the 'sp' field
-        );
+    if (friends.length > 0) {
+      // Bulk query for all friends in a single database request
+      const friendsData = await usersCollection
+        .find({ username: { $in: friends } }, { projection: { username: 1, sp: 1 } })
+        .toArray();
 
-        // Include the friend's username and their 'sp'
-        return {
-          username: friendUsername,
-          sp: friendData?.sp || 0  // If 'sp' is not found, default to null
-        };
-      })
-    );
+      // Create a map to quickly access friend data by username
+      const friendsMap = new Map(friendsData.map(friend => [friend.username, friend.sp]));
 
-    res.json({ friends: friendsWithDetails, friendRequests });
+      // Map each friend to their corresponding 'sp' value using the map
+      const friendsWithDetails = friends.map(friendUsername => ({
+        username: friendUsername,
+        sp: friendsMap.get(friendUsername) || null  // Default to null if no 'sp' is found
+      }));
+
+      res.json({ friends: friendsWithDetails, friendRequests });
+    } else {
+      // If no friends, just return empty arrays
+      res.json({ friends: [], friendRequests });
+    }
   } catch (error) {
     console.error(error);  // Log the error for debugging
     res.status(500).json({ message: "error" });
