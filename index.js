@@ -2772,7 +2772,7 @@ app.get("/get-friends/:token", checkRequestSize, verifyToken, async (req, res) =
       // Map each friend to their corresponding 'sp' value using the map
       const friendsWithDetails = friends.map(friendUsername => ({
         username: friendUsername,
-        sp: friendsMap.get(friendUsername) || null  // Default to null if no 'sp' is found
+        sp: friendsMap.get(friendUsername) || 0 // Default to null if no 'sp' is found
       }));
 
       res.json({ friends: friendsWithDetails, friendRequests });
