@@ -2760,8 +2760,25 @@ app.get("/get-friends/:token", checkRequestSize, verifyToken, async (req, res) =
     const friends = userFriendsData?.friends || [];
     const friendRequests = userFriendsData?.friendRequests || [];
 
-    res.json({ friends, friendRequests });
+    // Fetch details for each friend from the users collection
+    const friendsWithDetails = await Promise.all(
+      friends.map(async (friendUsername) => {
+        const friendData = await userCollection.findOne(
+          { username: friendUsername },
+          { projection: { sp: 1 } }  // Select the 'sp' field
+        );
+
+        // Include the friend's username and their 'sp'
+        return {
+          username: friendUsername,
+          sp: friendData?.sp || 0  // If 'sp' is not found, default to null
+        };
+      })
+    );
+
+    res.json({ friends: friendsWithDetails, friendRequests });
   } catch (error) {
+    console.error(error);  // Log the error for debugging
     res.status(500).json({ message: "error" });
   }
 });
