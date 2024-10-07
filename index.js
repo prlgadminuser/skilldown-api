@@ -1338,9 +1338,12 @@ app.get("/get-user-inventory/:token", checkRequestSize, verifyToken, async (req,
       // Add a resolved promise to maintain array consistency
       promises.push(Promise.resolve(null));
     }
+      promises.push(
+        shopcollection.findOne({ _id: "config" }).catch(() => null) // Handle errors and continue
+    );
 
     // Wait for all promises to resolve
-    const [userRow, bpuserRow, onetimeRow] = await Promise.all(promises);
+    const [userRow, bpuserRow, onetimeRow, configrow] = await Promise.all(promises);
 
     // Check if the userRow exists
     if (!userRow) {
