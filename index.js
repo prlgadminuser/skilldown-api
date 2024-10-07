@@ -2910,34 +2910,49 @@ app.get("/get-friends/:token", checkRequestSize, verifyToken, async (req, res) =
 eventEmitter.setMaxListeners(1);
 
 const activeConnections = new Map();
-const TIMEOUT = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 // Define global event listeners
 const globalListeners = {
   friendRequestSent: (data) => {
-    activeConnections.forEach((connection, key) => {
-      if (data.to === connection.username) {
-        sendEventToClient(key, 'friendRequestSent', data);
-      }
-    });
+    try {
+      activeConnections.forEach((connection, key) => {
+        if (data.to === connection.username) {
+          sendEventToClient(key, 'friendRequestSent', data);
+        }
+      });
+    } catch (error) {
+      console.error('Error in friendRequestSent listener:', error);
+    }
   },
   shopUpdate: (data) => {
-    broadcastToAllClients('shopUpdate', data);
+    try {
+      broadcastToAllClients('shopUpdate', data);
+    } catch (error) {
+      console.error('Error in shopUpdate listener:', error);
+    }
   },
   maintenanceUpdate: (data) => {
-    broadcastToAllClients('maintenanceUpdate', data);
-    disconnectAllClients();
+    try {
+      broadcastToAllClients('maintenanceUpdate', data);
+      disconnectAllClients('maintenance');
+    } catch (error) {
+      console.error('Error in maintenanceUpdate listener:', error);
+    }
   }
 };
 
-// Helper function to send event to a specific client
+// Helper function to safely send event to a specific client
 function sendEventToClient(key, eventName, data) {
-  const connection = activeConnections.get(key);
-  if (connection && connection.res && typeof connection.res.write === 'function') {
-    const timestamp = new Date().toISOString();
-    const eventData = { type: eventName, ...data, timestamp };
-    connection.res.write(`data: ${JSON.stringify(eventData)}\n\n`);
-    resetTimeout(key);
+  try {
+    const connection = activeConnections.get(key);
+    if (connection && connection.res && !connection.res.finished) {
+      const timestamp = new Date().toISOString();
+      const eventData = { type: eventName, ...data, timestamp };
+      connection.res.write(`data: ${JSON.stringify(eventData)}\n\n`);
+    }
+  } catch (error) {
+    console.error(`Error sending event to client ${key}:`, error);
+    safelyRemoveConnection(key);
   }
 }
 
@@ -2948,86 +2963,96 @@ function broadcastToAllClients(eventName, data) {
   });
 }
 
-// Helper function to disconnect all clients
-function disconnectAllClients() {
+// Helper function to safely disconnect all clients
+function disconnectAllClients(reason) {
   activeConnections.forEach((connection, key) => {
-    connection.res.write('data: {"type":"disconnect","reason":"maintenance"}\n\n');
-    connection.res.end();
-    clearTimeout(connection.timeout);
+    try {
+      if (connection.res && !connection.res.finished) {
+        connection.res.write(`data: {"type":"disconnect","reason":"${reason}"}\n\n`);
+        connection.res.end();
+      }
+    } catch (error) {
+      console.error(`Error disconnecting client ${key}:`, error);
+    } finally {
+      safelyRemoveConnection(key);
+    }
   });
-  activeConnections.clear();
 }
 
-// Helper function to reset timeout for a connection
-function resetTimeout(key) {
-  if (activeConnections.has(key)) {
+// Helper function to safely remove a connection
+function safelyRemoveConnection(key) {
+  try {
     const connection = activeConnections.get(key);
-    clearTimeout(connection.timeout);
-    connection.timeout = setTimeout(() => {
-      connection.res.end();
+    if (connection) {
+      if (connection.res && !connection.res.finished) {
+        connection.res.end();
+      }
       activeConnections.delete(key);
-    }, TIMEOUT);
+      eventEmitter.removeAllListeners(connection.username);
+    }
+  } catch (error) {
+    console.error(`Error removing connection ${key}:`, error);
   }
 }
 
 function disconnectExistingConnections(username) {
   activeConnections.forEach((connection, key) => {
     if (connection.username === username) {
-      connection.res.write('data: {"type":"disconnect","reason":"new_connection"}\n\n');
-      connection.res.end();
-      clearTimeout(connection.timeout);
-      activeConnections.delete(key);
+      try {
+        if (connection.res && !connection.res.finished) {
+          connection.res.write('data: {"type":"disconnect","reason":"new_connection"}\n\n');
+          connection.res.end();
+        }
+      } catch (error) {
+        console.error(`Error disconnecting existing connection for ${username}:`, error);
+      } finally {
+        safelyRemoveConnection(key);
+      }
     }
   });
 }
 
 app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
-  const username = req.user.username;
-  const ip = req.headers['true-client-ip'] || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  try {
+    const username = req.user.username;
+    const ip = req.headers['true-client-ip'] || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
-  const connectionKey = `${username}_${ip}`;
+    const connectionKey = `${username}_${ip}`;
 
-  // Disconnect any existing connections for the user
-  disconnectExistingConnections(username);
+    // Disconnect any existing connections for the user
+    disconnectExistingConnections(username);
 
-  // Remove all existing listeners for this user
-  eventEmitter.removeAllListeners(username);
-
-  // Setup new connection
-  const clientConnection = {
-    username,
-    res,
-    timeout: setTimeout(() => {
-      res.end();
-      activeConnections.delete(connectionKey);
-      eventEmitter.removeAllListeners(username);
-    }, TIMEOUT)
-  };
-
-  // Track the new connection
-  activeConnections.set(connectionKey, clientConnection);
-
-  // Set headers to establish Server-Sent Events connection
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.flushHeaders();
-
-  // Initial connection confirmation
-  res.write('data: {"status": "connected"}\n\n');
-
-  // Setup user-specific event listener
-  eventEmitter.on(username, (eventName, data) => {
-    sendEventToClient(connectionKey, eventName, data);
-  });
-
-  // Cleanup on client disconnect
-  req.on('close', () => {
-    clearTimeout(clientConnection.timeout);
-    activeConnections.delete(connectionKey);
+    // Remove all existing listeners for this user
     eventEmitter.removeAllListeners(username);
-    res.end();
-  });
+
+    // Setup new connection
+    const clientConnection = { username, res };
+
+    // Track the new connection
+    activeConnections.set(connectionKey, clientConnection);
+
+    // Set headers to establish Server-Sent Events connection
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive'
+    });
+
+    // Initial connection confirmation
+    res.write('data: {"status": "connected"}\n\n');
+
+    // Setup user-specific event listener
+    eventEmitter.on(username, (eventName, data) => {
+      sendEventToClient(connectionKey, eventName, data);
+    });
+
+    // Cleanup on client disconnect
+    req.on('close', () => safelyRemoveConnection(connectionKey));
+
+  } catch (error) {
+    console.error('Error setting up SSE connection:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
 });
 
 // Attach global listeners
