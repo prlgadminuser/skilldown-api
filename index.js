@@ -2907,7 +2907,7 @@ app.get("/get-friends/:token", checkRequestSize, verifyToken, async (req, res) =
 });
 
  
-eventEmitter.setMaxListeners(1);
+eventEmitter.setMaxListeners(30);
 
 const activeConnections = new Map();
 
