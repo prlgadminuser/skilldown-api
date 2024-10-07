@@ -2920,8 +2920,7 @@ const globalListeners = {
         const timestamp = new Date().toISOString();
         const eventData = { ...data, timestamp };
         if (connection.res && typeof connection.res.write === 'function') {
-          connection.res.write(`data: ${JSON.stringify(eventData)}\n\n`);
-          connection.res.flush();  // Ensure data is flushed
+          connection.res.write(`data: ${JSON.stringify(eventData)}\n\n`);  // Ensure data is flushed
           resetTimeout(key); // Reset timeout on activity
         }
       }
@@ -2930,8 +2929,7 @@ const globalListeners = {
   shopUpdate: (data) => {
     activeConnections.forEach((connection, key) => {
       if (connection.res && typeof connection.res.write === 'function') {
-        connection.res.write(`data: ${JSON.stringify(data)}\n\n`);
-        connection.res.flush();  // Ensure data is flushed
+        connection.res.write(`data: ${JSON.stringify(data)}\n\n`);  // Ensure data is flushed
         resetTimeout(key); // Reset timeout on activity
       }
     });
@@ -2939,8 +2937,7 @@ const globalListeners = {
   maintenanceUpdate: (data) => {
     activeConnections.forEach((connection, key) => {
       if (connection.res && typeof connection.res.write === 'function') {
-        connection.res.write(`data: ${JSON.stringify(data)}\n\n`);
-        connection.res.flush();  // Ensure data is flushed
+        connection.res.write(`data: ${JSON.stringify(data)}\n\n`);  // Ensure data is flushed
         resetTimeout(key); // Reset timeout on activity
       }
     });
