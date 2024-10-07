@@ -2961,17 +2961,24 @@ function resetTimeout(key) {
   }
 }
 
+function disconnectExistingConnections(username) {
+  activeConnections.forEach((connection, key) => {
+    if (connection.username === username) {
+      connection.res.write('data: {"type":"disconnect","reason":"new_connection"}\n\n');
+      connection.res.end();
+      clearTimeout(connection.timeout);
+      activeConnections.delete(key);
+    }
+  });
+}
+
 app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
   const username = req.user.username;
   const ip = req.headers['true-client-ip'] || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
   const connectionKey = `${username}_${ip}`;
 
-  // End any existing connection for this user and IP
-  if (activeConnections.has(connectionKey)) {
-    activeConnections.get(connectionKey).res.end();
-    clearTimeout(activeConnections.get(connectionKey).timeout);
-  }
+  disconnectExistingConnections(username);
 
   const clientConnection = { username, res, timeout: setTimeout(() => {
     res.end();
