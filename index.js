@@ -2907,7 +2907,7 @@ app.get("/get-friends/:token", checkRequestSize, verifyToken, async (req, res) =
 });
 
  
-eventEmitter.setMaxListeners(3);
+eventEmitter.setMaxListeners(1);
 
 const activeConnections = new Map();
 const TIMEOUT = 5 * 60 * 1000; // 5 minutes in milliseconds
@@ -2921,6 +2921,7 @@ const globalListeners = {
         const eventData = { ...data, timestamp };
         if (connection.res && typeof connection.res.write === 'function') {
           connection.res.write(`data: ${JSON.stringify(eventData)}\n\n`);
+          connection.res.flush();  // Ensure data is flushed
           resetTimeout(key); // Reset timeout on activity
         }
       }
@@ -2930,6 +2931,7 @@ const globalListeners = {
     activeConnections.forEach((connection, key) => {
       if (connection.res && typeof connection.res.write === 'function') {
         connection.res.write(`data: ${JSON.stringify(data)}\n\n`);
+        connection.res.flush();  // Ensure data is flushed
         resetTimeout(key); // Reset timeout on activity
       }
     });
@@ -2938,10 +2940,10 @@ const globalListeners = {
     activeConnections.forEach((connection, key) => {
       if (connection.res && typeof connection.res.write === 'function') {
         connection.res.write(`data: ${JSON.stringify(data)}\n\n`);
+        connection.res.flush();  // Ensure data is flushed
         resetTimeout(key); // Reset timeout on activity
       }
     });
-    //eventEmitter.removeAllListeners(); // Clean up listeners globally
 
     // Clear the activeConnections map
     activeConnections.clear();
@@ -2966,17 +2968,15 @@ function resetTimeout(key) {
 }
 
 function disconnectExistingConnections(username) {
-  if (activeConnections.has(username)) {
-    const userConnections = activeConnections.get(username);
-    userConnections.forEach((connection, ip) => {
+  activeConnections.forEach((connection, key) => {
+    if (connection.username === username) {
       connection.res.write('data: {"type":"disconnect","reason":"new_connection"}\n\n');
       connection.res.end();
       clearTimeout(connection.timeout);
-    });
-    activeConnections.delete(username);
-  }
+      activeConnections.delete(key);
+    }
+  });
 }
-
 
 app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
   const username = req.user.username;
@@ -2984,30 +2984,40 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
 
   const connectionKey = `${username}_${ip}`;
 
+  // Disconnect any existing connections for the user
   disconnectExistingConnections(username);
 
-  const clientConnection = { username, res, timeout: setTimeout(() => {
-    res.end();
-    activeConnections.delete(connectionKey);
-  }, TIMEOUT) };
+  // Setup new connection
+  const clientConnection = {
+    username,
+    res,
+    timeout: setTimeout(() => {
+      res.end();  // End the connection after TIMEOUT if no activity
+      activeConnections.delete(connectionKey);
+    }, TIMEOUT)
+  };
 
   // Track the new connection
   activeConnections.set(connectionKey, clientConnection);
 
+  // Set headers to establish Server-Sent Events connection
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
-  res.flushHeaders();
+  res.flushHeaders();  // Ensure headers are flushed
 
-  res.write('data: connected\n\n');
+  // Initial connection confirmation
+  res.write('data: {"status": "connected"}\n\n');
+  res.flush();  // Ensure the data is flushed immediately
 
   // Cleanup on client disconnect
   req.on('close', () => {
     clearTimeout(clientConnection.timeout);
     activeConnections.delete(connectionKey);
-    res.end();
+    res.end();  // Ensure the connection is properly closed
   });
 });
+
 
 // Function to watch MongoDB items and emit events
 async function watchItemShop() {
