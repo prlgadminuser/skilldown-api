@@ -2917,40 +2917,46 @@ const globalListeners = {
   friendRequestSent: (data) => {
     activeConnections.forEach((connection, key) => {
       if (data.to === connection.username) {
-        const timestamp = new Date().toISOString();
-        const eventData = { ...data, timestamp };
-        if (connection.res && typeof connection.res.write === 'function') {
-          connection.res.write(`data: ${JSON.stringify(eventData)}\n\n`);  // Ensure data is flushed
-          resetTimeout(key); // Reset timeout on activity
-        }
+        sendEventToClient(key, 'friendRequestSent', data);
       }
     });
   },
   shopUpdate: (data) => {
-    activeConnections.forEach((connection, key) => {
-      if (connection.res && typeof connection.res.write === 'function') {
-        connection.res.write(`data: ${JSON.stringify(data)}\n\n`);  // Ensure data is flushed
-        resetTimeout(key); // Reset timeout on activity
-      }
-    });
+    broadcastToAllClients('shopUpdate', data);
   },
   maintenanceUpdate: (data) => {
-    activeConnections.forEach((connection, key) => {
-      if (connection.res && typeof connection.res.write === 'function') {
-        connection.res.write(`data: ${JSON.stringify(data)}\n\n`);  // Ensure data is flushed
-        resetTimeout(key); // Reset timeout on activity
-      }
-    });
-
-    // Clear the activeConnections map
-    activeConnections.clear();
+    broadcastToAllClients('maintenanceUpdate', data);
+    disconnectAllClients();
   }
 };
 
-// Attach global listeners
-Object.keys(globalListeners).forEach(event => {
-  eventEmitter.on(event, globalListeners[event]);
-});
+// Helper function to send event to a specific client
+function sendEventToClient(key, eventName, data) {
+  const connection = activeConnections.get(key);
+  if (connection && connection.res && typeof connection.res.write === 'function') {
+    const timestamp = new Date().toISOString();
+    const eventData = { type: eventName, ...data, timestamp };
+    connection.res.write(`data: ${JSON.stringify(eventData)}\n\n`);
+    resetTimeout(key);
+  }
+}
+
+// Helper function to broadcast event to all clients
+function broadcastToAllClients(eventName, data) {
+  activeConnections.forEach((_, key) => {
+    sendEventToClient(key, eventName, data);
+  });
+}
+
+// Helper function to disconnect all clients
+function disconnectAllClients() {
+  activeConnections.forEach((connection, key) => {
+    connection.res.write('data: {"type":"disconnect","reason":"maintenance"}\n\n');
+    connection.res.end();
+    clearTimeout(connection.timeout);
+  });
+  activeConnections.clear();
+}
 
 // Helper function to reset timeout for a connection
 function resetTimeout(key) {
@@ -2984,13 +2990,17 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
   // Disconnect any existing connections for the user
   disconnectExistingConnections(username);
 
+  // Remove all existing listeners for this user
+  eventEmitter.removeAllListeners(username);
+
   // Setup new connection
   const clientConnection = {
     username,
     res,
     timeout: setTimeout(() => {
-      res.end();  // End the connection after TIMEOUT if no activity
+      res.end();
       activeConnections.delete(connectionKey);
+      eventEmitter.removeAllListeners(username);
     }, TIMEOUT)
   };
 
@@ -3001,17 +3011,28 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
-  res.flushHeaders();  // Ensure headers are flushed
+  res.flushHeaders();
 
   // Initial connection confirmation
-  res.write('data: {"status": "connected"}\n\n');  // Ensure the data is flushed immediately
+  res.write('data: {"status": "connected"}\n\n');
+
+  // Setup user-specific event listener
+  eventEmitter.on(username, (eventName, data) => {
+    sendEventToClient(connectionKey, eventName, data);
+  });
 
   // Cleanup on client disconnect
   req.on('close', () => {
     clearTimeout(clientConnection.timeout);
     activeConnections.delete(connectionKey);
-    res.end();  // Ensure the connection is properly closed
+    eventEmitter.removeAllListeners(username);
+    res.end();
   });
+});
+
+// Attach global listeners
+Object.keys(globalListeners).forEach(event => {
+  eventEmitter.on(event, globalListeners[event]);
 });
 
 
