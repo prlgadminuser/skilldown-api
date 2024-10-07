@@ -2943,7 +2943,7 @@ const globalListeners = {
     eventEmitter.removeAllListeners(); // Clean up listeners globally
 
     // Clear the activeConnections map
-    activeConnections.clear();
+    //activeConnections.clear();
   }
 };
 
