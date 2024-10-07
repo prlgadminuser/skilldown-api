@@ -2962,15 +2962,17 @@ function resetTimeout(key) {
 }
 
 function disconnectExistingConnections(username) {
-  activeConnections.forEach((connection, key) => {
-    if (connection.username === username) {
+  if (activeConnections.has(username)) {
+    const userConnections = activeConnections.get(username);
+    userConnections.forEach((connection, ip) => {
       connection.res.write('data: {"type":"disconnect","reason":"new_connection"}\n\n');
       connection.res.end();
       clearTimeout(connection.timeout);
-      activeConnections.delete(key);
-    }
-  });
+    });
+    activeConnections.delete(username);
+  }
 }
+
 
 app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
   const username = req.user.username;
