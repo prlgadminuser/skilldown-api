@@ -3004,8 +3004,7 @@ app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
   res.flushHeaders();  // Ensure headers are flushed
 
   // Initial connection confirmation
-  res.write('data: {"status": "connected"}\n\n');
-  res.flush();  // Ensure the data is flushed immediately
+  res.write('data: {"status": "connected"}\n\n');  // Ensure the data is flushed immediately
 
   // Cleanup on client disconnect
   req.on('close', () => {
