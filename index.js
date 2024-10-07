@@ -2940,10 +2940,10 @@ const globalListeners = {
         resetTimeout(key); // Reset timeout on activity
       }
     });
-    eventEmitter.removeAllListeners(); // Clean up listeners globally
+    //eventEmitter.removeAllListeners(); // Clean up listeners globally
 
     // Clear the activeConnections map
-    //activeConnections.clear();
+    activeConnections.clear();
   }
 };
 
