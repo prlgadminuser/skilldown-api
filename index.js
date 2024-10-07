@@ -3021,9 +3021,25 @@ async function watchItemShop() {
     const dailyItemsId = "dailyItems";
     const maintenanceId = "maintenance";
 
+   // const pipeline = [
+    //  { $match: { $or: [{ 'fullDocument._id': dailyItemsId }, { 'fullDocument._id': maintenanceId }] } }
+   // ];
+
     const pipeline = [
-      { $match: { $or: [{ 'fullDocument._id': dailyItemsId }, { 'fullDocument._id': maintenanceId }] } }
-    ];
+  {
+    $match: {
+      $and: [
+        {
+          $or: [
+            { 'fullDocument._id': dailyItemsId },
+            { 'fullDocument._id': maintenanceId }
+          ]
+        },
+        { operationType: { $in: ['update'] } }  // Filter to only listen for update operations
+      ]
+    }
+  }
+];
 
     const changeStream = shopcollection.watch(pipeline, { fullDocument: 'updateLookup' });
 
