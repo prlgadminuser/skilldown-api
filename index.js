@@ -2907,7 +2907,7 @@ app.get("/get-friends/:token", checkRequestSize, verifyToken, async (req, res) =
 
     // If there are friends, fetch their 'sp' values
     if (friends.length > 0) {
-      const friendsSpData = await friendsCollection
+      const friendsSpData = await userCollection
         .find(
           { username: { $in: friends } }, // Fetch friends by username
           { projection: { username: 1, sp: 1 } } // Only return username and sp
@@ -2923,7 +2923,7 @@ app.get("/get-friends/:token", checkRequestSize, verifyToken, async (req, res) =
 
     // If there are friend requests, fetch their 'sp' values
     if (friendRequests.length > 0) {
-      const friendRequestsSpData = await friendsCollection
+      const friendRequestsSpData = await userCollection
         .find(
           { username: { $in: friendRequests } }, // Fetch friend requests by username
           { projection: { username: 1, sp: 1 } } // Only return username and sp
