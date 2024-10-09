@@ -2892,6 +2892,7 @@ app.get("/get-friends/:token", checkRequestSize, verifyToken, async (req, res) =
   const username = req.user.username;
 
   try {
+    // Fetch user's friends and friend requests
     const userFriendsData = await friendsCollection.findOne(
       { username },
       { projection: { friends: 1, friendRequests: 1 } }
@@ -2900,7 +2901,44 @@ app.get("/get-friends/:token", checkRequestSize, verifyToken, async (req, res) =
     const friends = userFriendsData?.friends || [];
     const friendRequests = userFriendsData?.friendRequests || [];
 
-    res.json({ friends, friendRequests });
+    // Initialize objects for social points (sp) for both friends and friend requests
+    let friendsp = {};
+    let friendRequestsp = {};
+
+    // If there are friends, fetch their 'sp' values
+    if (friends.length > 0) {
+      const friendsSpData = await friendsCollection
+        .find(
+          { username: { $in: friends } }, // Fetch friends by username
+          { projection: { username: 1, sp: 1 } } // Only return username and sp
+        )
+        .toArray();
+
+      // Populate the friendsp object with username as the key and sp as the value
+      friendsp = friendsSpData.reduce((acc, friend) => {
+        acc[friend.username] = friend.sp || 0; // default sp to 0 if not available
+        return acc;
+      }, {});
+    }
+
+    // If there are friend requests, fetch their 'sp' values
+    if (friendRequests.length > 0) {
+      const friendRequestsSpData = await friendsCollection
+        .find(
+          { username: { $in: friendRequests } }, // Fetch friend requests by username
+          { projection: { username: 1, sp: 1 } } // Only return username and sp
+        )
+        .toArray();
+
+      // Populate the friendRequestsp object with username as the key and sp as the value
+      friendRequestsp = friendRequestsSpData.reduce((acc, friend) => {
+        acc[friend.username] = friend.sp || 0; // default sp to 0 if not available
+        return acc;
+      }, {});
+    }
+
+    // Return the original response with added 'friendsp' and 'friendRequestsp' fields
+    res.json({ friends, friendRequests, friendsp, friendRequestsp });
   } catch (error) {
     res.status(500).json({ message: "error" });
   }
