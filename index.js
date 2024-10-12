@@ -1444,7 +1444,6 @@ app.get("/get-matchstats/:token", checkRequestSize, verifyToken, async (req, res
       sp: userRow.sp || 0,
       season_coins: season_coins || 0,
       bonusitem_damage: bonusitem_damage || 0,
-      lbtheme: lobbytheme, // Assuming lobbytheme is defined elsewhere
     };
 
     res.json(response);
