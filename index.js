@@ -124,7 +124,8 @@ async function trackAccountActivity(username, ipAddress) {
 
 
 // configurations
-   
+const Filter = require('bad-words');
+const filter = new Filter();
 const express = require("express");
 const { MongoClient, ServerApiVersion } = require("mongodb");
 const bcrypt = require("bcrypt");
@@ -211,6 +212,10 @@ const verifychangeserver = (req, res, next) => {
     res.status(403).send('not verified');
   }
 };
+
+function containsProfanity(text) {
+    return filter.isProfane(text);
+}
 
 /*const limiter = rateLimit({
   windowMs: 1 * 60 * 1000,
@@ -553,6 +558,11 @@ app.post("/register", checkRequestSize, registerLimiter, async (req, res) => {
 
    if (username === password) {
       res.status(400).send("identical types");
+      return;
+    }
+
+      if (filter.isProfane(username)) {
+      res.status(400).send("Username is not allowed");
       return;
     }
      
