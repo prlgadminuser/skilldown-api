@@ -561,10 +561,10 @@ app.post("/register", checkRequestSize, registerLimiter, async (req, res) => {
       return;
     }
 
-     if (!profanity.check(username)) {
-       res.status(400).send("NOT ALLOWED");
-       return;
-    }  
+   //  if (!profanity.check(username)) {
+  //     res.status(400).send("NOT ALLOWED");
+  //     return;
+  //  }  
 
     if (!usernameRegex.test(username)) {
       res
