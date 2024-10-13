@@ -563,7 +563,6 @@ app.post("/register", checkRequestSize, registerLimiter, async (req, res) => {
 
      if (profanity.check(username)) {
        res.status(400).send("NOT ALLOWED");
-       return;
     }  
 
     if (!usernameRegex.test(username)) {
