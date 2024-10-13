@@ -124,8 +124,7 @@ async function trackAccountActivity(username, ipAddress) {
 
 
 // configurations
-import Filter from 'bad-words';
-const filter = new Filter();
+const profanityCheck = require('profanity-check');
 const express = require("express");
 const { MongoClient, ServerApiVersion } = require("mongodb");
 const bcrypt = require("bcrypt");
@@ -561,10 +560,10 @@ app.post("/register", checkRequestSize, registerLimiter, async (req, res) => {
       return;
     }
 
-      if (filter.isProfane(username)) {
-      res.status(400).send("Username is not allowed");
-      return;
-    }
+      if (profanityCheck(username)) {
+    res.status(400).send("Username not allowed");
+    return;
+  }
      
 
     if (!usernameRegex.test(username)) {
