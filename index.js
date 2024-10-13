@@ -560,9 +560,9 @@ app.post("/register", checkRequestSize, registerLimiter, async (req, res) => {
       return;
     }
 
-      if (profanityCheck(username)) {
+     if (profanityCheck.isProfane(username)) {
     res.status(400).send("Username not allowed");
-    return;
+    return; 
   }
      
 
