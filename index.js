@@ -124,7 +124,7 @@ async function trackAccountActivity(username, ipAddress) {
 
 
 // configurations
-const profanityCheck = require('profanity-check');
+const profanity = require('profanity-check');
 const express = require("express");
 const { MongoClient, ServerApiVersion } = require("mongodb");
 const bcrypt = require("bcrypt");
@@ -560,8 +560,10 @@ app.post("/register", checkRequestSize, registerLimiter, async (req, res) => {
       return;
     }
 
-
-     
+     if (profanity.check(username)) {
+       res.status(400).send("NOT ALLOWED");
+       return;
+    }  
 
     if (!usernameRegex.test(username)) {
       res
