@@ -124,7 +124,7 @@ async function trackAccountActivity(username, ipAddress) {
 
 
 // configurations
-const Filter = require('bad-words');
+import Filter from 'bad-words';
 const filter = new Filter();
 const express = require("express");
 const { MongoClient, ServerApiVersion } = require("mongodb");
