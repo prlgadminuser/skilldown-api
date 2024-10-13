@@ -157,7 +157,8 @@ const webhook = new Discord.WebhookClient({
         });
 
 const app = express();
-exports.app = app;
+app.use(express.json());
+
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
