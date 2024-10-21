@@ -864,93 +864,120 @@ app.post("/buy-item2/:token/:itemId", checkRequestSize, verifyToken, async (req,
   let session;
 
   try {
+    // Start a new session and begin the transaction
     session = client.startSession();
     session.startTransaction();
 
-const user = await userCollection.findOne(
-  { 
-    username, 
-    items: { 
-      $exists: true, 
-      $elemMatch: { $eq: itemId } 
-    } 
-  }
- );
+    // Check if the user already owns the item
+    const user = await userCollection.findOne(
+      {
+        username,
+        items: { $exists: true, $elemMatch: { $eq: itemId } },
+      }
+    );
 
-     if (user) {
+    if (user) {
+      await session.abortTransaction();
       return res.status(401).json({ message: "You already own this item." });
     }
 
-
-     
+    // Fetch the user's coin balance
     const userRow = await userCollection.findOne(
-      { username: username },
-      {
-        projection: {
-          coins: 1,
-        },
-      },
-    );
- 
-
-    const itemshop = await shopcollection.findOne(
-      { _id: "dailyItems", [`items.${itemId}`]: { $exists: true } },
-      {
-        projection: { [`items.${itemId}`]: 1 },
-        session
-      }
+      { username },
+      { projection: { coins: 1 } }
     );
 
-    if (!itemshop || !itemshop.items || !itemshop.items[itemId]) {
+    if (!userRow) {
       await session.abortTransaction();
-      return res.status(401).json({ message: "Item not found in the shop." });
+      return res.status(404).json({ message: "User not found." });
     }
 
-    const selectedItem = itemshop.items[itemId];
+    // Use aggregation to fetch the matching item from dailyItems
+    const dailyItemsData = await shopcollection.aggregate([
+      {
+        $match: { _id: "dailyItems" }
+      },
+      {
+        $project: {
+          itemsArray: { $objectToArray: "$items" }
+        }
+      },
+      {
+        $project: {
+          matchingItem: {
+            $filter: {
+              input: "$itemsArray",
+              as: "item",
+              cond: { $eq: ["$$item.v.itemId", itemId] }
+            }
+          }
+        }
+      },
+      {
+        $project: {
+          itemExists: { $gt: [{ $size: "$matchingItem" }, 0] },
+        }
+      }
+    ]).toArray();
+
+    const selectedItem = dailyItemsData.length ? dailyItemsData[0].matchingItem[0]?.v : null;
 
     if (!selectedItem) {
-      return res.status(401).json({ message: "Item is not valid." });
-      }
-
-    if ((userRow.coins || 0) < selectedItem.price) {
-      return res
-        .status(401)
-        .json({ message: "Not enough coins to buy the item." });
+      await session.abortTransaction();
+      return res.status(400).json({ message: "Item is not valid." });
     }
 
+    // Check if the user has enough coins to buy the item
+    if ((userRow.coins || 0) < selectedItem.price) {
+      await session.abortTransaction();
+      return res.status(401).json({ message: "Not enough coins to buy the item." });
+    }
+
+    // Update user's coins and add the item to the user's inventory
+    if (selectedItem.price > 0) {
+      await userCollection.updateOne(
+        { username },
+        {
+          $inc: { coins: -selectedItem.price },
+          $push: { items: itemId },
+        },
+        { session }
+      );
+    } else {
+      await userCollection.updateOne(
+        { username },
+        {
+          $push: { items: itemId },
+        },
+        { session }
+      );
+    }
+
+    // Commit the transaction after a successful update
     await session.commitTransaction();
 
-    // Update the user's coins and add the purchased item to the items array
-     if (selectedItem.price > 0) {
-    await userCollection.updateOne(
-      { username },
-      {
-        $inc: { coins: -selectedItem.price },
-        $push: { items: itemId },
-      },
-      { session }
-    );
-  } else {
-    await userCollection.updateOne(
-      { username },
-      {
-        $push: { items: itemId },
-      },
-      { session }
-    );
-  }
+    res.json({
+      message: `You have purchased ${selectedItem.name}.`,
+      dailyItems: dailyItemsData[0].dailyItems
+    });
 
-    res.json({ message: `Du hast ${selectedItem.name} gekauft.` });
   } catch (error) {
-    await session.abortTransaction();
-   // console.error("Transaction aborted:", error);
-    res.status(500).json({ message: "error" });
+    // Abort the transaction on error
+    if (session && session.inTransaction()) {
+      await session.abortTransaction();
+    }
+
+    console.error("Transaction aborted due to an error:", error);
+    res.status(500).json({ message: "An error occurred while processing your request." });
+
   } finally {
+    // End the session
     if (session) {
       session.endSession();
     }
   }
 });
+
 
 
 
