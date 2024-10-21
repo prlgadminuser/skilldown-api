@@ -892,8 +892,8 @@ app.post("/buy-item/:token/:itemId", checkRequestSize, verifyToken, async (req, 
       return res.status(404).json({ message: "User not found." });
     }
 
-    // Use aggregation to check if the itemId exists in dailyItems
-    const itemExists = await shopcollection.aggregate([
+    // Use a single aggregation to check if the itemId exists and get the item details
+    const shopData = await shopcollection.aggregate([
       {
         $match: { _id: "dailyItems" }
       },
@@ -903,26 +903,23 @@ app.post("/buy-item/:token/:itemId", checkRequestSize, verifyToken, async (req, 
         }
       },
       {
-        $project: {
-          matchingItem: {
-            $filter: {
-              input: "$itemsArray",
-              as: "item",
-              cond: { $eq: ["$$item.v.itemId", itemId] }
-            }
-          }
+        $unwind: "$itemsArray" // Unwind items to check individually
+      },
+      {
+        $match: {
+          "itemsArray.v.itemId": itemId // Match specific itemId
         }
       },
       {
         $project: {
-          itemExists: { $gt: [{ $size: "$matchingItem" }, 0] },
-          selectedItem: { $arrayElemAt: ["$matchingItem.v", 0] } // Get the first matched item
+          selectedItem: "$itemsArray.v" // Project the selected item's details
         }
       }
     ]).toArray();
 
-    const selectedItem = itemExists.length && itemExists[0].itemExists ? itemExists[0].selectedItem : null;
+    const selectedItem = shopData.length ? shopData[0].selectedItem : null;
 
+    // If the item is not found, abort the transaction
     if (!selectedItem) {
       await session.abortTransaction();
       return res.status(400).json({ message: "Item is not valid." });
@@ -975,6 +972,7 @@ app.post("/buy-item/:token/:itemId", checkRequestSize, verifyToken, async (req, 
     }
   }
 });
+
 
 
 
