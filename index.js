@@ -892,8 +892,8 @@ app.post("/buy-item/:token/:itemId", checkRequestSize, verifyToken, async (req, 
       return res.status(404).json({ message: "User not found." });
     }
 
-    // Use aggregation to fetch the matching item from dailyItems
-    const dailyItemsData = await shopcollection.aggregate([
+    // Use aggregation to check if the itemId exists in dailyItems
+    const itemExists = await shopcollection.aggregate([
       {
         $match: { _id: "dailyItems" }
       },
@@ -916,11 +916,12 @@ app.post("/buy-item/:token/:itemId", checkRequestSize, verifyToken, async (req, 
       {
         $project: {
           itemExists: { $gt: [{ $size: "$matchingItem" }, 0] },
+          selectedItem: { $arrayElemAt: ["$matchingItem.v", 0] } // Get the first matched item
         }
       }
     ]).toArray();
 
-    const selectedItem = dailyItemsData.length ? dailyItemsData[0].matchingItem[0]?.v : null;
+    const selectedItem = itemExists.length && itemExists[0].itemExists ? itemExists[0].selectedItem : null;
 
     if (!selectedItem) {
       await session.abortTransaction();
@@ -956,10 +957,7 @@ app.post("/buy-item/:token/:itemId", checkRequestSize, verifyToken, async (req, 
     // Commit the transaction after a successful update
     await session.commitTransaction();
 
-    res.json({
-      message: `You have purchased ${selectedItem.name}.`,
-      dailyItems: dailyItemsData[0].dailyItems
-    });
+    res.json({ message: `You have purchased ${selectedItem.name}.` });
 
   } catch (error) {
     // Abort the transaction on error
