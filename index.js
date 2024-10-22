@@ -1658,7 +1658,7 @@ app.get("/verify-token/:token", checkRequestSize, verifyToken, async (req, res) 
   try {
     const userInformation = await userCollection.findOne(
       { username },
-      { projection: { username: 1, nickname: 1 } }
+      { projection: { username: 1 } }
     );
 
     if (!userInformation) {
@@ -1666,7 +1666,7 @@ app.get("/verify-token/:token", checkRequestSize, verifyToken, async (req, res) 
     }
 
     res.json({
-      message: `${userInformation.nickname}`,
+      message: `${username}`,
     });
   } catch (error) {
    // console.error("Internal Server Error:", error);
