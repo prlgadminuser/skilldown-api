@@ -613,6 +613,7 @@ app.post("/register", checkRequestSize, registerLimiter, async (req, res) => {
 
         await userCollection.insertOne({
           username,
+          nickname: username,
           password: hashedPassword,
           coins: 100,
           created_at: currentTimestamp,
@@ -620,7 +621,6 @@ app.post("/register", checkRequestSize, registerLimiter, async (req, res) => {
           token,
           last_collected: 0,
           items: [],
-
         });
 
 
