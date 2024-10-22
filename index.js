@@ -1666,7 +1666,7 @@ app.get("/verify-token/:token", checkRequestSize, verifyToken, async (req, res) 
     }
 
     res.json({
-      message: `${nickname}`,
+      message: `${userInformation.nickname}`,
     });
   } catch (error) {
    // console.error("Internal Server Error:", error);
