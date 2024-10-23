@@ -1536,7 +1536,7 @@ app.get("/user-profile/:token/:usernamed", checkRequestSize, verifyToken, async 
 
   try {
     const userRow = await userCollection.findOne(
-      { nickname: usernamed },
+      { username: usernamed },
       {
         projection: {
           username: 1,
@@ -1631,6 +1631,7 @@ const updateHighscores = async () => {
           $project: {
             _id: 0,
             nickname: 1,
+            username: 1,
             sp: { $ifNull: ["$sp", 0] }
           } 
         }
