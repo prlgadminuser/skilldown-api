@@ -3042,7 +3042,7 @@ let connectedClientsCount = 0; // Track connected clients
 const connectedPlayers = new Map();
 
 
-const wss = new WebSocket.Server({ noServer: true });
+const wss = new WebSocket.Server({ server });
 const serverwss = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.end('WebSocket API server is running.\n');
@@ -3065,70 +3065,13 @@ async function verifyToken1(token) {
 }
 
 // WebSocket connection handling
-wss.on("connection", (ws, req) => {
+wss.on("connection", async (ws, req) => {
     console.log("Client connected");
 
     ws.isAlive = true; // Mark the connection as alive
 
-    // Send a success message upon connection
-    ws.send(JSON.stringify({ type: "connection", message: "success" }));
-
-    // Handle incoming messages from clients
-    ws.on("message", async (message) => {
-        try {
-            const data = JSON.parse(message);
-            
-            // Check if it's a pong message
-            if (data.type === "pong") {
-                ws.isAlive = true; // Mark the client as alive on pong message
-                return; // Exit early since it's a ping/pong message
-            }
-
-            const playerVerified = ws.playerVerified; // Get player information stored in ws
-
-            // Check the rate limit for message sending (limit is 5 messages per second)
-            await messageRateLimiter.consume(playerVerified.playerId);
-
-            // Handle the message if rate limit passed
-            await handleMessage(ws, message, playerVerified);
-        } catch (error) {
-            if (error instanceof Error && error.message.includes("Too Many Requests")) {
-                ws.send(JSON.stringify({ type: "error", message: "Rate limit exceeded" }));
-            } else {
-                ws.send(JSON.stringify({ type: "error", message: "Failed to process message" }));
-            }
-        }
-    });
-
-    // Handle client disconnection
-    ws.on("close", () => {
-        const playerId = ws.playerVerified?.playerId;
-        if (playerId) {
-            connectedPlayers.delete(playerId); // Remove the player from the map on disconnect
-        }
-        connectedClientsCount--; // Decrement the connected clients count
-        console.log("Client disconnected");
-    });
-});
-
-// WebSocket upgrade handling
-serverwss.on("upgrade", async (request, socket, head) => {
-    // Check if the maximum number of clients is reached
-    if (connectedClientsCount >= maxClients) {
-        socket.write('HTTP/1.1 503 Service Unavailable\r\n\r\n');
-        socket.destroy();
-        return;
-    }
-
-    const origin = request.headers.origin; // Get the Origin header
-    if (!allowedOrigins.includes(origin)) {
-        console.error(`Unauthorized origin: ${origin}`);
-        socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
-        socket.destroy();
-        return;
-    }
-
-    const token = request.url.split('/')[1]; // Extract token from URL
+    // Extract token from the URL query (assuming token is passed as a query parameter)
+    const token = req.url.split('/')[1]; // Extract token from URL
     console.log('Token:', token);
 
     try {
@@ -3138,25 +3081,58 @@ serverwss.on("upgrade", async (request, socket, head) => {
         // Check if the player is already connected
         const existingConnection = connectedPlayers.get(playerVerified.playerId);
         if (existingConnection) {
-            console.log(`Player ${playerVerified.playerId} already connected. Rejecting new connection.`);
-            socket.write('HTTP/1.1 409 Conflict\r\n\r\n');
-            socket.destroy();
+            console.log(`Player ${playerVerified.playerId} already connected. Closing this connection.`);
+            ws.close(409); // Send a 409 Conflict status
             return;
         }
 
-        // Handle the WebSocket upgrade and store the player connection
-        wss.handleUpgrade(request, socket, head, (ws) => {
-            ws.playerVerified = playerVerified; // Attach verified player info to ws
-            connectedPlayers.set(playerVerified.playerId, ws); // Store the new connection
-            connectedClientsCount++; // Increment the connected clients count
+        // Store the player connection
+        ws.playerVerified = playerVerified; // Attach verified player info to ws
+        connectedPlayers.set(playerVerified.playerId, ws); // Store the new connection
+        connectedClientsCount++; // Increment the connected clients count
 
-            // Emit the connection event
-            wss.emit("connection", ws, request);
+        // Send a success message upon connection
+        ws.send(JSON.stringify({ type: "connection", message: "success" }));
+
+        // Handle incoming messages from clients
+        ws.on("message", async (message) => {
+            try {
+                const data = JSON.parse(message);
+                
+                // Check if it's a pong message
+                if (data.type === "pong") {
+                    ws.isAlive = true; // Mark the client as alive on pong message
+                    return; // Exit early since it's a ping/pong message
+                }
+
+                const playerVerified = ws.playerVerified; // Get player information stored in ws
+
+                // Check the rate limit for message sending (limit is 5 messages per second)
+                await messageRateLimiter.consume(playerVerified.playerId);
+
+                // Handle the message if rate limit passed
+                await handleMessage(ws, message, playerVerified);
+            } catch (error) {
+                if (error instanceof Error && error.message.includes("Too Many Requests")) {
+                    ws.send(JSON.stringify({ type: "error", message: "Rate limit exceeded" }));
+                } else {
+                    ws.send(JSON.stringify({ type: "error", message: "Failed to process message" }));
+                }
+            }
+        });
+
+        // Handle client disconnection
+        ws.on("close", () => {
+            const playerId = ws.playerVerified?.playerId;
+            if (playerId) {
+                connectedPlayers.delete(playerId); // Remove the player from the map on disconnect
+            }
+            connectedClientsCount--; // Decrement the connected clients count
+            console.log("Client disconnected");
         });
     } catch (error) {
         console.error('Token verification failed:', error.message);
-        socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-        socket.destroy();
+        ws.close(401); // Close the connection with a 401 Unauthorized status
     }
 });
 
@@ -3177,7 +3153,6 @@ const interval = setInterval(() => {
 wss.on('close', () => {
     clearInterval(interval);
 });
-
 
 
 async function watchItemShop() {
@@ -3263,10 +3238,6 @@ app.use((err, req, res, next) => {
        });
 
 
-
-serverwss.listen(4636, () => {
-      console.log('websocket server is running');
-    });
 
   app.listen(port, () => {
       console.log(`Server is running on port ${port}`);
