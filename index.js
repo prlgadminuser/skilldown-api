@@ -3122,7 +3122,7 @@ serverwss.on("upgrade", async (request, socket, head) => {
 
     const origin = request.headers.origin; // Get the Origin header
     if (!allowedOrigins.includes(origin)) {
-        console.error(Unauthorized origin: ${origin});
+        console.error('Unauthorized origin: ${origin}');
         socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
         socket.destroy();
         return;
@@ -3138,7 +3138,7 @@ serverwss.on("upgrade", async (request, socket, head) => {
         // Check if the player is already connected
         const existingConnection = connectedPlayers.get(playerVerified.playerId);
         if (existingConnection) {
-            console.log(Player ${playerVerified.playerId} already connected. Rejecting new connection.);
+            console.log('Player ${playerVerified.playerId} already connected. Rejecting new connection.');
             socket.write('HTTP/1.1 409 Conflict\r\n\r\n');
             socket.destroy();
             return;
