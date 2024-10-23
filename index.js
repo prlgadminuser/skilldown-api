@@ -566,7 +566,7 @@ app.post("/update-nickname/:token/:newNickname", checkRequestSize, verifyToken, 
     // Check if the new nickname is already taken by another user
     const nicknameExists = await userCollection.findOne(
       { nickname: { $regex: new RegExp(`^${newNickname}$`, "i") } },
-      { projection: { _id: 1 } }
+      { projection: { _id: 1 } } // Only return the _id field
     );
 
     if (nicknameExists) {
@@ -574,16 +574,35 @@ app.post("/update-nickname/:token/:newNickname", checkRequestSize, verifyToken, 
       return;
     }
 
+    // Fetch the user's current nicknameUpdatedAt timestamp using projection
+    const user = await userCollection.findOne(
+      { username },
+      { projection: { nicknameUpdatedAt: 1 } } // Only return the nicknameUpdatedAt field
+    );
 
-    // Update the nickname field for the found user
+    // Check if the nickname can be updated
+    const now = new Date();
+    const lastUpdated = user?.nicknameUpdatedAt || new Date(0); // Default to epoch if not set
+    const timeDiff = now - lastUpdated; // Difference in milliseconds
+
+    if (timeDiff < 24 * 60 * 60 * 1000) { // 24 hours in milliseconds
+      const timeRemaining = (24 * 60 * 60 * 1000 - timeDiff) / (1000 * 60); // Convert to minutes
+      res.status(429).send(`nickname cooldown. Please wait ${Math.ceil(timeRemaining)} minutes.`);
+      return;
+    }
+
+    // Update the nickname field and the timestamp for the found user
     await userCollection.updateOne(
       { username },
-      { $set: { nickname: newNickname } }
+      { 
+        $set: { nickname: newNickname, nicknameUpdatedAt: new Date() } 
+      }
     );
 
     res.status(200).send("Nickname updated successfully");
   } catch (error) {
     // Catch any unexpected errors
+    console.error(error); // Log the error for debugging purposes
     res.status(500).send("Internal Server Error");
   }
 });
