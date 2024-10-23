@@ -1539,6 +1539,7 @@ app.get("/user-profile/:token/:usernamed", checkRequestSize, verifyToken, async 
       { nickname: usernamed },
       {
         projection: {
+          username: 1,
           nickname: 1,
           equipped_item: 1,
           equipped_item2: 1,
@@ -1582,6 +1583,7 @@ app.get("/user-profile/:token/:usernamed", checkRequestSize, verifyToken, async 
     }
 
     res.json({
+      username: userRow.username || "User",
       nickname: userRow.nickname || "User",
       equipped_item: userRow.equipped_item || 0,
       equipped_item2: userRow.equipped_item2 || 0,
