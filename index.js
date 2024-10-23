@@ -161,7 +161,7 @@ const app = express();
 app.use(express.json());
 
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+//const wss = new WebSocket.Server({ server });
 
 const port = process.env.PORT || 3000;
 //const http = require('http').createServer(app);
