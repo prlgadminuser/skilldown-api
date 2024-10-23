@@ -161,7 +161,7 @@ const app = express();
 app.use(express.json());
 
 const server = http.createServer(app);
-//const wss = new WebSocket.Server({ server });
+const wss = new WebSocket.Server({ server });
 
 const port = process.env.PORT || 3000;
 //const http = require('http').createServer(app);
@@ -3031,7 +3031,6 @@ app.get("/get-friends/:token", checkRequestSize, verifyToken, async (req, res) =
 
  
 // Define global event listeners
-const wss = new WebSocket.Server({ noServer: true });
 const messageRateLimiter = new RateLimiterMemory({
     points: 5, // Allow 5 messages
     duration: 1, // per second
