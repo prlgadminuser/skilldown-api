@@ -146,7 +146,6 @@ var sanitize = require('mongo-sanitize');
 const http = require('http');
 const compression = require('compression');
 const WebSocket = require("ws");
-const { RateLimiterMemory } = require('rate-limiter-flexible');
 
 const webhookURL = process.env.DISCORD_KEY;
 const tokenkey = process.env.TOKEN_KEY;
@@ -161,8 +160,7 @@ const app = express();
 app.use(express.json());
 
 const server = http.createServer(app);
-
-
+const wss = new WebSocket.Server({ server });
 
 const port = process.env.PORT || 3000;
 //const http = require('http').createServer(app);
@@ -548,49 +546,6 @@ const applyAccountCreationLimit = (req, res, next) => {
   accountCreationLimit(req, res, next);
 };
 
-app.post("/update-nickname/:token/:newNickname", checkRequestSize, verifyToken, async (req, res) => {
-  try {
-    const { username } = req.user; // Assuming verifyToken attaches the authenticated username to req.user
-    const { newNickname } = req.params; // Fetch newNickname from URL params
-
-    // Check if newNickname is provided
-    if (!newNickname) {
-      res.status(400).send("New nickname is required");
-      return;
-    }
-
-    // Verify newNickname against the usernameRegex
-    if (!usernameRegex.test(newNickname)) {
-      res.status(400).send("Invalid nickname format");
-      return;
-    }
-
-    // Check if the new nickname is already taken by another user
-    const nicknameExists = await userCollection.findOne(
-      { nickname: { $regex: new RegExp(`^${newNickname}$`, "i") } },
-      { projection: { _id: 1 } }
-    );
-
-    if (nicknameExists) {
-      res.status(409).send("Nickname already taken");
-      return;
-    }
-
-
-    // Update the nickname field for the found user
-    await userCollection.updateOne(
-      { username },
-      { $set: { nickname: newNickname } }
-    );
-
-    res.status(200).send("Nickname updated successfully");
-  } catch (error) {
-    // Catch any unexpected errors
-    res.status(500).send("Internal Server Error");
-  }
-});
-
-
 app.post("/register", checkRequestSize, registerLimiter, async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -658,7 +613,6 @@ app.post("/register", checkRequestSize, registerLimiter, async (req, res) => {
 
         await userCollection.insertOne({
           username,
-          nickname: username,
           password: hashedPassword,
           coins: 100,
           created_at: currentTimestamp,
@@ -666,6 +620,7 @@ app.post("/register", checkRequestSize, registerLimiter, async (req, res) => {
           token,
           last_collected: 0,
           items: [],
+
         });
 
 
@@ -2670,7 +2625,7 @@ app.post("/send-friend-request/:token/:friendUsername", checkRequestSize, verify
     );
 
     await session.commitTransaction();
-   // eventEmitter.emit('friendRequestSent', { type: "send", from: username, to: friendUsername });
+    eventEmitter.emit('friendRequestSent', { type: "send", from: username, to: friendUsername });
     res.json({ message: "Friend request sent." });
   } catch (error) {
     if (session) await session.abortTransaction();
@@ -2756,7 +2711,7 @@ app.post("/accept-friend-request/:token/:friendUsername", checkRequestSize, veri
     ]);
 
     await session.commitTransaction();
-   // eventEmitter.emit('friendRequestSent', { type: "accept", from: username, to: friendUsername });
+    eventEmitter.emit('friendRequestSent', { type: "accept", from: username, to: friendUsername });
     res.json({ message: "Friend request accepted." });
   } catch (error) {
     if (session) await session.abortTransaction();
@@ -3019,218 +2974,205 @@ app.get("/get-friends/:token", checkRequestSize, verifyToken, async (req, res) =
   }
 });
 
-
-
-
-
-
-
-
-
-
-
-
  
+eventEmitter.setMaxListeners(2);
+
+const activeConnections = new Map();
+
 // Define global event listeners
-const messageRateLimiter = new RateLimiterMemory({
-    points: 5, // Allow 5 messages
-    duration: 1, // per second
-});
-
-const maxClients = 20; // Set maximum allowed clients
-let connectedClientsCount = 0; // Track connected clients
-const connectedPlayers = new Map();
-
-
-const wss = new WebSocket.Server({ server });
-const serverwss = http.createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('WebSocket API server is running.\n');
-});
-
-// Token verification function
-async function verifyToken1(token) {
-    const tokenkey = process.env.TOKEN_KEY;
-
-    if (!token) {
-        throw new Error('Unauthorized'); // Throw an error to be caught later
-    }
-
+const globalListeners = {
+  friendRequestSent: (data) => {
     try {
-        const decodedToken = jwt.verify(token, tokenkey);
-        return decodedToken; // Return decoded token (user information)
-    } catch (err) {
-        throw new Error('Invalid token');
+      activeConnections.forEach((connection, key) => {
+        if (data.to === connection.username) {
+          sendEventToClient(key, 'friendRequestSent', data);
+        }
+      });
+    } catch (error) {
+      console.error('Error in friendRequestSent listener:', error);
     }
+  },
+  shopUpdate: (data) => {
+    try {
+      broadcastToAllClients('shopUpdate', data);
+    } catch (error) {
+      console.error('Error in shopUpdate listener:', error);
+    }
+  },
+  maintenanceUpdate: (data) => {
+    try {
+      broadcastToAllClients('maintenanceUpdate', data);
+      disconnectAllClients('maintenance');
+    } catch (error) {
+      console.error('Error in maintenanceUpdate listener:', error);
+    }
+  }
+};
+
+// Helper function to safely send event to a specific client
+function sendEventToClient(key, eventName, data) {
+  try {
+    const connection = activeConnections.get(key);
+    if (connection && connection.res && !connection.res.finished) {
+      const timestamp = new Date().toISOString();
+      const eventData = { type: eventName, ...data, timestamp };
+      connection.res.write(`data: ${JSON.stringify(eventData)}\n\n`);
+    }
+  } catch (error) {
+    console.error(`Error sending event to client ${key}:`, error);
+    safelyRemoveConnection(key);
+  }
 }
 
-// WebSocket connection handling
-wss.on("connection", (ws, req) => {
-    console.log("Client connected");
+// Helper function to broadcast event to all clients
+function broadcastToAllClients(eventName, data) {
+  activeConnections.forEach((_, key) => {
+    sendEventToClient(key, eventName, data);
+  });
+}
 
-    ws.isAlive = true; // Mark the connection as alive
-
-    // Send a success message upon connection
-    ws.send(JSON.stringify({ type: "connection", message: "success" }));
-
-    // Handle incoming messages from clients
-    ws.on("message", async (message) => {
-        try {
-            const data = JSON.parse(message);
-            
-            // Check if it's a pong message
-            if (data.type === "pong") {
-                ws.isAlive = true; // Mark the client as alive on pong message
-                return; // Exit early since it's a ping/pong message
-            }
-
-            const playerVerified = ws.playerVerified; // Get player information stored in ws
-
-            // Check the rate limit for message sending (limit is 5 messages per second)
-            await messageRateLimiter.consume(playerVerified.playerId);
-
-            // Handle the message if rate limit passed
-            await handleMessage(ws, message, playerVerified);
-        } catch (error) {
-            if (error instanceof Error && error.message.includes("Too Many Requests")) {
-                ws.send(JSON.stringify({ type: "error", message: "Rate limit exceeded" }));
-            } else {
-                ws.send(JSON.stringify({ type: "error", message: "Failed to process message" }));
-            }
-        }
-    });
-
-    // Handle client disconnection
-    ws.on("close", () => {
-        const playerId = ws.playerVerified?.playerId;
-        if (playerId) {
-            connectedPlayers.delete(playerId); // Remove the player from the map on disconnect
-        }
-        connectedClientsCount--; // Decrement the connected clients count
-        console.log("Client disconnected");
-    });
-});
-
-// WebSocket upgrade handling
-serverwss.on("upgrade", async (request, socket, head) => {
-    // Check if the maximum number of clients is reached
-    if (connectedClientsCount >= maxClients) {
-        socket.write('HTTP/1.1 503 Service Unavailable\r\n\r\n');
-        socket.destroy();
-        return;
-    }
-
-    const origin = request.headers.origin; // Get the Origin header
-    if (!allowedOrigins.includes(origin)) {
-        console.error('Unauthorized origin: ${origin}');
-        socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
-        socket.destroy();
-        return;
-    }
-
-    const token = request.url.split('/')[1]; // Extract token from URL
-    console.log('Token:', token);
-
+// Helper function to safely disconnect all clients
+function disconnectAllClients(reason) {
+  activeConnections.forEach((connection, key) => {
     try {
-        // Verify the token using the verifyToken function
-        const playerVerified = await verifyToken1(token);
-
-        // Check if the player is already connected
-        const existingConnection = connectedPlayers.get(playerVerified.playerId);
-        if (existingConnection) {
-            console.log('Player ${playerVerified.playerId} already connected. Rejecting new connection.');
-            socket.write('HTTP/1.1 409 Conflict\r\n\r\n');
-            socket.destroy();
-            return;
-        }
-
-        // Handle the WebSocket upgrade and store the player connection
-        wss.handleUpgrade(request, socket, head, (ws) => {
-            ws.playerVerified = playerVerified; // Attach verified player info to ws
-            connectedPlayers.set(playerVerified.playerId, ws); // Store the new connection
-            connectedClientsCount++; // Increment the connected clients count
-
-            // Emit the connection event
-            wss.emit("connection", ws, request);
-        });
+      if (connection.res && !connection.res.finished) {
+        connection.res.write(`data: {"type":"disconnect","reason":"${reason}"}\n\n`);
+        connection.res.end();
+      }
     } catch (error) {
-        console.error('Token verification failed:', error.message);
-        socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-        socket.destroy();
+      console.error(`Error disconnecting client ${key}:`, error);
+    } finally {
+      safelyRemoveConnection(key);
     }
-});
+  });
+}
 
-// Ping system to check if clients are active
-const interval = setInterval(() => {
-    wss.clients.forEach((ws) => {
-        if (!ws.isAlive) {
-            console.log('Terminating inactive client');
-            return ws.terminate(); // Terminate the connection if no pong received
+// Helper function to safely remove a connection
+function safelyRemoveConnection(key) {
+  try {
+    const connection = activeConnections.get(key);
+    if (connection) {
+      if (connection.res && !connection.res.finished) {
+        connection.res.end();
+      }
+      activeConnections.delete(key);
+      eventEmitter.removeAllListeners(connection.username);
+    }
+  } catch (error) {
+    console.error(`Error removing connection ${key}:`, error);
+  }
+}
+
+function disconnectExistingConnections(username) {
+  activeConnections.forEach((connection, key) => {
+    if (connection.username === username) {
+      try {
+        if (connection.res && !connection.res.finished) {
+          connection.res.write('data: {"type":"disconnect","reason":"new_connection"}\n\n');
+          connection.res.end();
         }
+      } catch (error) {
+        console.error(`Error disconnecting existing connection for ${username}:`, error);
+      } finally {
+        safelyRemoveConnection(key);
+      }
+    }
+  });
+}
 
-        ws.isAlive = false; // Reset the alive flag
-        ws.send(JSON.stringify({ type: "ping" })); // Send a custom ping message to the client
+app.get('/events/:token', checkRequestSize, verifyToken, async (req, res) => {
+  try {
+    const username = req.user.username;
+    const ip = req.headers['true-client-ip'] || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+    const connectionKey = `${username}_${ip}`;
+
+    // Disconnect any existing connections for the user
+    disconnectExistingConnections(username);
+
+    // Remove all existing listeners for this user
+    eventEmitter.removeAllListeners(username);
+
+    // Setup new connection
+    const clientConnection = { username, res };
+
+    // Track the new connection
+    activeConnections.set(connectionKey, clientConnection);
+
+    // Set headers to establish Server-Sent Events connection
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive'
     });
-}, 30000); // Ping every 30 seconds
 
-// Clear interval on server close to prevent memory leaks
-wss.on('close', () => {
-    clearInterval(interval);
+    // Initial connection confirmation
+    res.write('data: {"status": "connected"}\n\n');
+
+    // Setup user-specific event listener
+    eventEmitter.on(username, (eventName, data) => {
+      sendEventToClient(connectionKey, eventName, data);
+    });
+
+    // Cleanup on client disconnect
+    req.on('close', () => safelyRemoveConnection(connectionKey));
+
+  } catch (error) {
+    console.error('Error setting up SSE connection:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// Attach global listeners
+Object.keys(globalListeners).forEach(event => {
+  eventEmitter.on(event, globalListeners[event]);
 });
 
 
+// Function to watch MongoDB items and emit events
 async function watchItemShop() {
   try {
     const dailyItemsId = "dailyItems";
     const maintenanceId = "maintenance";
 
-    const pipeline = [
-      {
-        $match: {
-          $and: [
-            {
-              $or: [
-                { 'fullDocument._id': dailyItemsId },
-                { 'fullDocument._id': maintenanceId }
-              ]
-            },
-            { operationType: { $in: ['update'] } } // Filter to only listen for update operations
-          ]
-        }
-      }
-    ];
+   // const pipeline = [
+    //  { $match: { $or: [{ 'fullDocument._id': dailyItemsId }, { 'fullDocument._id': maintenanceId }] } }
+   // ];
 
-    // Start watching for changes in the shop collection
+    const pipeline = [
+  {
+    $match: {
+      $and: [
+        {
+          $or: [
+            { 'fullDocument._id': dailyItemsId },
+            { 'fullDocument._id': maintenanceId }
+          ]
+        },
+        { operationType: { $in: ['update'] } }  // Filter to only listen for update operations
+      ]
+    }
+  }
+];
+
     const changeStream = shopcollection.watch(pipeline, { fullDocument: 'updateLookup' });
 
-    // When a change occurs, handle it and broadcast to all connected clients
     changeStream.on('change', (change) => {
       const timestamp = new Date().toISOString();
       const documentId = change.fullDocument._id;
 
-      // Prepare the message payload
-      let messagePayload = null;
-
       if (documentId === dailyItemsId) {
-        // Event for shop update
-        messagePayload = JSON.stringify({ type: 'shopUpdate', update: "shopupdate", timestamp });
         eventEmitter.emit('shopUpdate', { update: "shopupdate", timestamp });
       } else if (documentId === maintenanceId) {
         const maintenanceStatus = change.fullDocument.status; // Adjust field name if needed
 
         if (maintenanceStatus === "true") {
           maintenanceMode = true;
-          messagePayload = JSON.stringify({ type: 'maintenanceUpdate', update: "maintenanceModeOn", timestamp });
-          eventEmitter.emit('maintenanceUpdate', { update: "maintenanceModeOn", timestamp });
+          eventEmitter.emit('maintenanceUpdate', { update: "maintenanceupdate", timestamp });
         } else if (maintenanceStatus === "false") {
           maintenanceMode = false;
-          messagePayload = JSON.stringify({ type: 'maintenanceUpdate', update: "maintenanceModeOff", timestamp });
         }
-      }
-
-      // If a message is prepared, broadcast it to all connected WebSocket clients
-      if (messagePayload) {
-        broadcastMessageToAllClients(messagePayload);
+      } else {
       }
     });
 
@@ -3239,17 +3181,10 @@ async function watchItemShop() {
   }
 }
 
-// Function to broadcast a message to all connected clients
-function broadcastMessageToAllClients(message) {
-  connectedPlayers.forEach((ws, playerId) => {
-    if (ws.readyState === ws.OPEN) {
-      ws.send(message); // Send the message to each connected client
-    }
-  });
-}
-
 // Start watching MongoDB changes
 watchItemShop();
+
+
 
 
 
@@ -3260,6 +3195,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Unexpected error' });
 
        });
+
 
 
 
