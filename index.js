@@ -1537,6 +1537,7 @@ app.get("/user-profile/:token/:usernamed", checkRequestSize, verifyToken, async 
       { username: usernamed },
       {
         projection: {
+          nickname: 1,
           equipped_item: 1,
           equipped_item2: 1,
           equipped_banner: 1,
@@ -1579,6 +1580,7 @@ app.get("/user-profile/:token/:usernamed", checkRequestSize, verifyToken, async 
     }
 
     res.json({
+      nickname: userRow.nickname || "User",
       equipped_item: userRow.equipped_item || 0,
       equipped_item2: userRow.equipped_item2 || 0,
       equipped_banner: userRow.equipped_banner || 0,
@@ -1624,7 +1626,7 @@ const updateHighscores = async () => {
         { 
           $project: {
             _id: 0,
-            username: 1,
+            nickname: 1,
             sp: { $ifNull: ["$sp", 0] }
           } 
         }
