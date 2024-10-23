@@ -546,6 +546,48 @@ const applyAccountCreationLimit = (req, res, next) => {
   accountCreationLimit(req, res, next);
 };
 
+app.post("/update-nickname/:token/:newNickname", checkRequestSize, verifyToken, async (req, res) => {
+  try {
+    const { username } = req.user; // Assuming verifyToken attaches the authenticated username to req.user
+    const { newNickname } = req.params; // Fetch newNickname from URL params
+
+    // Check if newNickname is provided
+    if (!newNickname) {
+      res.status(400).send("New nickname is required");
+      return;
+    }
+
+    // Verify newNickname against the usernameRegex
+    if (!usernameRegex.test(newNickname)) {
+      res.status(400).send("Invalid nickname format");
+      return;
+    }
+
+    // Check if the new nickname is already taken by another user
+    const nicknameExists = await userCollection.findOne(
+      { nickname: { $regex: new RegExp(`^${newNickname}$`, "i") } },
+      { projection: { _id: 1 } }
+    );
+
+    if (nicknameExists) {
+      res.status(409).send("Nickname already taken");
+      return;
+    }
+
+
+    // Update the nickname field for the found user
+    await userCollection.updateOne(
+      { username },
+      { $set: { nickname: newNickname } }
+    );
+
+    res.status(200).send("Nickname updated successfully");
+  } catch (error) {
+    // Catch any unexpected errors
+    res.status(500).send("Internal Server Error");
+  }
+});
+
 app.post("/register", checkRequestSize, registerLimiter, async (req, res) => {
   try {
     const { username, password } = req.body;
