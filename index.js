@@ -1366,6 +1366,7 @@ app.get("/get-user-inventory/:token", checkRequestSize, verifyToken, async (req,
         { username },
         {
           projection: {
+            nickname: 1,
             coins: 1,
             boxes: 1,
             sp: 1,
@@ -1441,6 +1442,7 @@ app.get("/get-user-inventory/:token", checkRequestSize, verifyToken, async (req,
 
     // Create response object
     const response = {
+      nickname: userRow.nickname || 0,
       coins: userRow.coins || 0,
       boxes: userRow.boxes || 0,
       sp: userRow.sp || 0,
