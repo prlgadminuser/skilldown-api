@@ -3018,55 +3018,213 @@ app.get("/get-friends/:token", checkRequestSize, verifyToken, async (req, res) =
   }
 });
 
+
+
+
+
+
+
+
+
+
+
+
  
 // Define global event listeners
+const wss = new WebSocket.Server({ noServer: true });
+const messageRateLimiter = new RateLimiterMemory({
+    points: 5, // Allow 5 messages
+    duration: 1, // per second
+});
+
+const maxClients = 20; // Set maximum allowed clients
+let connectedClientsCount = 0; // Track connected clients
+const connectedPlayers = new Map();
+
+// Token verification function
+async function verifyToken1(token) {
+    const tokenkey = process.env.TOKEN_KEY;
+
+    if (!token) {
+        throw new Error('Unauthorized'); // Throw an error to be caught later
+    }
+
+    try {
+        const decodedToken = jwt.verify(token, tokenkey);
+        return decodedToken; // Return decoded token (user information)
+    } catch (err) {
+        throw new Error('Invalid token');
+    }
+}
+
+// WebSocket connection handling
+wss.on("connection", (ws, req) => {
+    console.log("Client connected");
+
+    ws.isAlive = true; // Mark the connection as alive
+
+    // Send a success message upon connection
+    ws.send(JSON.stringify({ type: "connection", message: "success" }));
+
+    // Handle incoming messages from clients
+    ws.on("message", async (message) => {
+        try {
+            const data = JSON.parse(message);
+            
+            // Check if it's a pong message
+            if (data.type === "pong") {
+                ws.isAlive = true; // Mark the client as alive on pong message
+                return; // Exit early since it's a ping/pong message
+            }
+
+            const playerVerified = ws.playerVerified; // Get player information stored in ws
+
+            // Check the rate limit for message sending (limit is 5 messages per second)
+            await messageRateLimiter.consume(playerVerified.playerId);
+
+            // Handle the message if rate limit passed
+            await handleMessage(ws, message, playerVerified);
+        } catch (error) {
+            if (error instanceof Error && error.message.includes("Too Many Requests")) {
+                ws.send(JSON.stringify({ type: "error", message: "Rate limit exceeded" }));
+            } else {
+                ws.send(JSON.stringify({ type: "error", message: "Failed to process message" }));
+            }
+        }
+    });
+
+    // Handle client disconnection
+    ws.on("close", () => {
+        const playerId = ws.playerVerified?.playerId;
+        if (playerId) {
+            connectedPlayers.delete(playerId); // Remove the player from the map on disconnect
+        }
+        connectedClientsCount--; // Decrement the connected clients count
+        console.log("Client disconnected");
+    });
+});
+
+// WebSocket upgrade handling
+server.on("upgrade", async (request, socket, head) => {
+    // Check if the maximum number of clients is reached
+    if (connectedClientsCount >= maxClients) {
+        socket.write('HTTP/1.1 503 Service Unavailable\r\n\r\n');
+        socket.destroy();
+        return;
+    }
+
+    const origin = request.headers.origin; // Get the Origin header
+    if (!allowedOrigins.includes(origin)) {
+        console.error(`Unauthorized origin: ${origin}`);
+        socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+        socket.destroy();
+        return;
+    }
+
+    const token = request.url.split('/')[1]; // Extract token from URL
+    console.log('Token:', token);
+
+    try {
+        // Verify the token using the verifyToken function
+        const playerVerified = await verifyToken1(token);
+
+        // Check if the player is already connected
+        const existingConnection = connectedPlayers.get(playerVerified.playerId);
+        if (existingConnection) {
+            console.log(`Player ${playerVerified.playerId} already connected. Rejecting new connection.`);
+            socket.write('HTTP/1.1 409 Conflict\r\n\r\n');
+            socket.destroy();
+            return;
+        }
+
+        // Handle the WebSocket upgrade and store the player connection
+        wss.handleUpgrade(request, socket, head, (ws) => {
+            ws.playerVerified = playerVerified; // Attach verified player info to ws
+            connectedPlayers.set(playerVerified.playerId, ws); // Store the new connection
+            connectedClientsCount++; // Increment the connected clients count
+
+            // Emit the connection event
+            wss.emit("connection", ws, request);
+        });
+    } catch (error) {
+        console.error('Token verification failed:', error.message);
+        socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+        socket.destroy();
+    }
+});
+
+// Ping system to check if clients are active
+const interval = setInterval(() => {
+    wss.clients.forEach((ws) => {
+        if (!ws.isAlive) {
+            console.log('Terminating inactive client');
+            return ws.terminate(); // Terminate the connection if no pong received
+        }
+
+        ws.isAlive = false; // Reset the alive flag
+        ws.send(JSON.stringify({ type: "ping" })); // Send a custom ping message to the client
+    });
+}, 30000); // Ping every 30 seconds
+
+// Clear interval on server close to prevent memory leaks
+wss.on('close', () => {
+    clearInterval(interval);
+});
 
 
 
-// Function to watch MongoDB items and emit events
 async function watchItemShop() {
   try {
     const dailyItemsId = "dailyItems";
     const maintenanceId = "maintenance";
 
-   // const pipeline = [
-    //  { $match: { $or: [{ 'fullDocument._id': dailyItemsId }, { 'fullDocument._id': maintenanceId }] } }
-   // ];
-
     const pipeline = [
-  {
-    $match: {
-      $and: [
-        {
-          $or: [
-            { 'fullDocument._id': dailyItemsId },
-            { 'fullDocument._id': maintenanceId }
+      {
+        $match: {
+          $and: [
+            {
+              $or: [
+                { 'fullDocument._id': dailyItemsId },
+                { 'fullDocument._id': maintenanceId }
+              ]
+            },
+            { operationType: { $in: ['update'] } } // Filter to only listen for update operations
           ]
-        },
-        { operationType: { $in: ['update'] } }  // Filter to only listen for update operations
-      ]
-    }
-  }
-];
+        }
+      }
+    ];
 
+    // Start watching for changes in the shop collection
     const changeStream = shopcollection.watch(pipeline, { fullDocument: 'updateLookup' });
 
+    // When a change occurs, handle it and broadcast to all connected clients
     changeStream.on('change', (change) => {
       const timestamp = new Date().toISOString();
       const documentId = change.fullDocument._id;
 
+      // Prepare the message payload
+      let messagePayload = null;
+
       if (documentId === dailyItemsId) {
+        // Event for shop update
+        messagePayload = JSON.stringify({ type: 'shopUpdate', update: "shopupdate", timestamp });
         eventEmitter.emit('shopUpdate', { update: "shopupdate", timestamp });
       } else if (documentId === maintenanceId) {
         const maintenanceStatus = change.fullDocument.status; // Adjust field name if needed
 
         if (maintenanceStatus === "true") {
           maintenanceMode = true;
-          eventEmitter.emit('maintenanceUpdate', { update: "maintenanceupdate", timestamp });
+          messagePayload = JSON.stringify({ type: 'maintenanceUpdate', update: "maintenanceModeOn", timestamp });
+          eventEmitter.emit('maintenanceUpdate', { update: "maintenanceModeOn", timestamp });
         } else if (maintenanceStatus === "false") {
           maintenanceMode = false;
+          messagePayload = JSON.stringify({ type: 'maintenanceUpdate', update: "maintenanceModeOff", timestamp });
         }
-      } else {
+      }
+
+      // If a message is prepared, broadcast it to all connected WebSocket clients
+      if (messagePayload) {
+        broadcastMessageToAllClients(messagePayload);
       }
     });
 
@@ -3075,10 +3233,17 @@ async function watchItemShop() {
   }
 }
 
+// Function to broadcast a message to all connected clients
+function broadcastMessageToAllClients(message) {
+  connectedPlayers.forEach((ws, playerId) => {
+    if (ws.readyState === ws.OPEN) {
+      ws.send(message); // Send the message to each connected client
+    }
+  });
+}
+
 // Start watching MongoDB changes
 watchItemShop();
-
-
 
 
 
