@@ -3264,6 +3264,9 @@ app.use((err, req, res, next) => {
 
 
 
+serverwss.listen(4636, () => {
+      console.log('websocket server is running');
+    });
 
   app.listen(port, () => {
       console.log(`Server is running on port ${port}`);
