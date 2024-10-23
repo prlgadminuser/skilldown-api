@@ -161,7 +161,8 @@ const app = express();
 app.use(express.json());
 
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+
+
 
 const port = process.env.PORT || 3000;
 //const http = require('http').createServer(app);
@@ -3040,6 +3041,13 @@ const maxClients = 20; // Set maximum allowed clients
 let connectedClientsCount = 0; // Track connected clients
 const connectedPlayers = new Map();
 
+
+const wss = new WebSocket.Server({ noServer: true });
+const serverwss = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('WebSocket API server is running.\n');
+});
+
 // Token verification function
 async function verifyToken1(token) {
     const tokenkey = process.env.TOKEN_KEY;
@@ -3104,7 +3112,7 @@ wss.on("connection", (ws, req) => {
 });
 
 // WebSocket upgrade handling
-server.on("upgrade", async (request, socket, head) => {
+serverwss.on("upgrade", async (request, socket, head) => {
     // Check if the maximum number of clients is reached
     if (connectedClientsCount >= maxClients) {
         socket.write('HTTP/1.1 503 Service Unavailable\r\n\r\n');
