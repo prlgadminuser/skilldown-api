@@ -1536,7 +1536,7 @@ app.get("/user-profile/:token/:usernamed", checkRequestSize, verifyToken, async 
 
   try {
     const userRow = await userCollection.findOne(
-      { username: usernamed },
+      { nickname: usernamed },
       {
         projection: {
           nickname: 1,
