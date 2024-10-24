@@ -553,13 +553,13 @@ app.post("/update-nickname/:token/:newNickname", checkRequestSize, verifyToken, 
 
     // Check if newNickname is provided
     if (!newNickname) {
-      res.status(400).send("New nickname is required");
+      res.status(400).json({ message: "New nickname is required" });
       return;
     }
 
     // Verify newNickname against the usernameRegex
     if (!nicknameRegex.test(newNickname)) {
-      res.status(400).send("Invalid nickname format");
+      res.status(400).json({ message: "Invalid nickname format" });
       return;
     }
 
@@ -570,7 +570,7 @@ app.post("/update-nickname/:token/:newNickname", checkRequestSize, verifyToken, 
     );
 
     if (nicknameExists) {
-      res.status(409).send("Nickname already taken");
+      res.status(409).json({ message: "Nickname already taken" });
       return;
     }
 
@@ -581,13 +581,20 @@ app.post("/update-nickname/:token/:newNickname", checkRequestSize, verifyToken, 
     );
 
     // Check if the nickname can be updated
-    const now = new Date();
-    const lastUpdated = user?.nicknameUpdatedAt || new Date(0); // Default to epoch if not set
+    const now = Date.now(); // Current timestamp in milliseconds
+    const lastUpdated = user?.nicknameUpdatedAt || 0; // Default to epoch (0) if not set
     const timeDiff = now - lastUpdated; // Difference in milliseconds
 
-    if (timeDiff < 24 * 60 * 60 * 1000) { // 24 hours in milliseconds
-      const timeRemaining = (24 * 60 * 60 * 1000 - timeDiff) / (1000 * 60); // Convert to minutes
-      res.status(429).send(`nickname cooldown. Please wait ${Math.ceil(timeRemaining)} minutes.`);
+    const cooldownPeriod = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+    if (timeDiff < cooldownPeriod) { // Check if the cooldown is still in effect
+      const remainingTime = cooldownPeriod - timeDiff; // Remaining time in milliseconds
+      const remainingHours = Math.floor(remainingTime / (1000 * 60 * 60)); // Hours remaining
+      const remainingMinutes = Math.ceil((remainingTime % (1000 * 60 * 60)) / (1000 * 60)); // Minutes remaining
+
+      res.status(429).json({
+        message: "nickname cooldown",
+        time: `${remainingHours}h ${remainingMinutes}m`
+      });
       return;
     }
 
@@ -595,17 +602,21 @@ app.post("/update-nickname/:token/:newNickname", checkRequestSize, verifyToken, 
     await userCollection.updateOne(
       { username },
       { 
-        $set: { nickname: newNickname, nicknameUpdatedAt: new Date() } 
+        $set: { 
+          nickname: newNickname, 
+          nicknameUpdatedAt: Date.now() // Set the current timestamp as nicknameUpdatedAt 
+        } 
       }
     );
 
-    res.status(200).send("Nickname updated successfully");
+    res.status(200).json({ message: "Nickname updated successfully" });
   } catch (error) {
     // Catch any unexpected errors
     console.error(error); // Log the error for debugging purposes
-    res.status(500).send("Internal Server Error");
+    res.status(500).json({ message: "Internal Server Error" });
   }
 });
+
 
 app.post("/register", checkRequestSize, registerLimiter, async (req, res) => {
   try {
