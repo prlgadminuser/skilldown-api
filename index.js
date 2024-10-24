@@ -674,7 +674,7 @@ app.post("/register", checkRequestSize, registerLimiter, async (req, res) => {
 
         await userCollection.insertOne({
           username,
-          nickname: nickname,
+          nickname: username,
           password: hashedPassword,
           coins: 100,
           created_at: currentTimestamp,
