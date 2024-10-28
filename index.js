@@ -941,19 +941,20 @@ app.post("/buy-item/:token/:offerKey", checkRequestSize, verifyToken, async (req
     session = client.startSession();
     session.startTransaction();
 
-    // Fetch shop data and the selected offer
+    // Fetch shop data and the selected offer using offerKey
     const shopData = await shopcollection.findOne(
       { _id: "dailyItems" },
-      { projection: { [`dailyItems.${offerKey}`]: 1 } }
+      { projection: { [`items.${offerKey}`]: 1 } }
     );
 
     // If the offer is not found, abort the transaction
-    const selectedOffer = shopData?.dailyItems?.[offerKey];
+    const selectedOffer = shopData?.items?.[offerKey];
     if (!selectedOffer) {
       await session.abortTransaction();
       return res.status(400).json({ message: "Offer is not valid." });
     }
 
+    // Normalize itemIds to an array (handle single or bundled items)
     const itemIds = Array.isArray(selectedOffer.itemId)
       ? selectedOffer.itemId
       : [selectedOffer.itemId];
@@ -983,14 +984,15 @@ app.post("/buy-item/:token/:offerKey", checkRequestSize, verifyToken, async (req
     }
 
     // Check if the user has enough coins to buy the offer
-    if ((userRow.coins || 0) < selectedOffer.price) {
+    const price = parseInt(selectedOffer.price, 10); // Ensure price is a number
+    if ((userRow.coins || 0) < price) {
       await session.abortTransaction();
       return res.status(401).json({ message: "Not enough coins to buy the offer." });
     }
 
     // Deduct coins and add items to user's inventory in a single update operation
     const updateFields = {
-      $inc: { coins: -selectedOffer.price },
+      $inc: { coins: -price },
       $addToSet: { items: { $each: itemIds } },
     };
 
@@ -1019,6 +1021,7 @@ app.post("/buy-item/:token/:offerKey", checkRequestSize, verifyToken, async (req
     }
   }
 });
+
 
 
 
