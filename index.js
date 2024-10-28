@@ -930,8 +930,8 @@ const user = await userCollection.findOne(
 });
 
 
-app.post("/buy-item/:token/:itemId", checkRequestSize, verifyToken, async (req, res) => {
-  const { itemId } = req.params;
+app.post("/buy-item/:token/:offerKey", checkRequestSize, verifyToken, async (req, res) => {
+  const { offerKey } = req.params; // Retrieve offerKey from the parameters
   const username = req.user.username;
 
   let session;
@@ -941,17 +941,34 @@ app.post("/buy-item/:token/:itemId", checkRequestSize, verifyToken, async (req, 
     session = client.startSession();
     session.startTransaction();
 
-    // Check if the user already owns the item
+    // Fetch shop data and the selected offer
+    const shopData = await shopcollection.findOne(
+      { _id: "dailyItems" },
+      { projection: { [`dailyItems.${offerKey}`]: 1 } }
+    );
+
+    // If the offer is not found, abort the transaction
+    const selectedOffer = shopData?.dailyItems?.[offerKey];
+    if (!selectedOffer) {
+      await session.abortTransaction();
+      return res.status(400).json({ message: "Offer is not valid." });
+    }
+
+    const itemIds = Array.isArray(selectedOffer.itemId)
+      ? selectedOffer.itemId
+      : [selectedOffer.itemId];
+
+    // Check if the user already owns any item in the offer
     const user = await userCollection.findOne(
       {
         username,
-        items: { $exists: true, $elemMatch: { $eq: itemId } },
+        items: { $exists: true, $in: itemIds },
       }
     );
 
     if (user) {
       await session.abortTransaction();
-      return res.status(401).json({ message: "You already own this item." });
+      return res.status(401).json({ message: "You already own an item from this offer." });
     }
 
     // Fetch the user's coin balance
@@ -965,69 +982,26 @@ app.post("/buy-item/:token/:itemId", checkRequestSize, verifyToken, async (req, 
       return res.status(404).json({ message: "User not found." });
     }
 
-    // Use a single aggregation to check if the itemId exists and get the item details
-    const shopData = await shopcollection.aggregate([
-      {
-        $match: { _id: "dailyItems" }
-      },
-      {
-        $project: {
-          itemsArray: { $objectToArray: "$items" }
-        }
-      },
-      {
-        $unwind: "$itemsArray" // Unwind items to check individually
-      },
-      {
-        $match: {
-          "itemsArray.v.itemId": itemId // Match specific itemId
-        }
-      },
-      {
-        $project: {
-          selectedItem: "$itemsArray.v" // Project the selected item's details
-        }
-      }
-    ]).toArray();
-
-    const selectedItem = shopData.length ? shopData[0].selectedItem : null;
-
-    // If the item is not found, abort the transaction
-    if (!selectedItem) {
+    // Check if the user has enough coins to buy the offer
+    if ((userRow.coins || 0) < selectedOffer.price) {
       await session.abortTransaction();
-      return res.status(400).json({ message: "Item is not valid." });
+      return res.status(401).json({ message: "Not enough coins to buy the offer." });
     }
 
-    // Check if the user has enough coins to buy the item
-    if ((userRow.coins || 0) < selectedItem.price) {
-      await session.abortTransaction();
-      return res.status(401).json({ message: "Not enough coins to buy the item." });
-    }
+    // Deduct coins and add items to user's inventory in a single update operation
+    const updateFields = {
+      $inc: { coins: -selectedOffer.price },
+      $addToSet: { items: { $each: itemIds } },
+    };
 
-    // Update user's coins and add the item to the user's inventory
-    if (selectedItem.price > 0) {
-      await userCollection.updateOne(
-        { username },
-        {
-          $inc: { coins: -selectedItem.price },
-          $push: { items: itemId },
-        },
-        { session }
-      );
-    } else {
-      await userCollection.updateOne(
-        { username },
-        {
-          $push: { items: itemId },
-        },
-        { session }
-      );
-    }
+    await userCollection.updateOne({ username }, updateFields, { session });
 
     // Commit the transaction after a successful update
     await session.commitTransaction();
 
-    res.json({ message: `You have purchased ${selectedItem.name}.` });
+    res.json({
+      message: `You have purchased ${selectedOffer.offertext}.`,
+    });
 
   } catch (error) {
     // Abort the transaction on error
