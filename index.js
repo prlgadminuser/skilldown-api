@@ -2368,7 +2368,7 @@ function getRandomItems(items, count) {
 // Helper function to check if enough time has passed since the last coin collection
 function canCollectCoins(lastCollected) {
   const hoursPassed = (Date.now() - lastCollected) / (1000 * 60 * 60);
-  return hoursPassed >= 6;
+  return hoursPassed >= 24;
 }
 
 // Helper function to generate a random number within a range
