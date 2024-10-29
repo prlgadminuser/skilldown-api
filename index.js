@@ -1,8 +1,6 @@
 "use strict";
 
 const gift_dev_msg = "Gift from Liquem Games";
-const coinsmin = 20
-const coinsmax = 35
 const rarity_normal = 0.8 //0.8
 const rarity_legendary = 0.995 //0.995
 const allgadgets = 3
@@ -775,8 +773,14 @@ app.get("/get-coins/:token", checkRequestSize, verifyToken, async (req, res) => 
       return;
     }
 
+     const coinsdata = await shopcollection.findOne(
+      { _id: "dailyrewardconfig" },
+       { projection: { coinsmin: 1, coinsmax: 1 } },
+    );
+
+
     // Generate a random number of coins to add
-    const coinsToAdd = generateRandomNumber(coinsmin, coinsmax);
+    const coinsToAdd = generateRandomNumber(coinsdata.coinsmin, coinsdata.coinsmax);
 
     // Update user data in the database
     await userCollection.updateOne(
