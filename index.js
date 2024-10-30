@@ -715,7 +715,7 @@ if (containsBadWords) {
         });
 
 
-        const joinedMessage = `${username} joined Skilled Legends.`;
+        const joinedMessage = `New user joined: ${username} - country code: ${country_code}.`;
         webhook.send(joinedMessage);
 
         res.status(201).json({ token });
