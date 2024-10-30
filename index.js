@@ -228,7 +228,7 @@ function containsProfanity(text) {
 const limiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 second window
   max: 45,
-  message: 'lg_server_limit_reached',
+  message: 'reached limit',
   keyGenerator: function(req) { return req.headers['true-client-ip'] || req.headers['x-forwarded-for'] },
   handler: (req, res) => res.status(429).json({ message: 'lg_server_limit_reached' }),
 });
@@ -237,7 +237,7 @@ const limiter = rateLimit({
 const noexploit = rateLimit({
   windowMs: 1000, // 1 second window
   max: 5,
-  message: 'lg_server_limit_reached',
+  message: 'reached limit',
   keyGenerator: function(req) { return req.headers['true-client-ip'] || req.headers['x-forwarded-for'] },
   handler: (req, res) => res.status(429).json({ message: 'lg_server_limit_reached' }),
 });
@@ -246,14 +246,14 @@ const registerLimiter = rateLimit({
   windowMs: 1 * 30 * 1000,
   max: 10,
   keyGenerator: function(req) { return req.headers['true-client-ip'] || req.headers['x-forwarded-for'] },
-  message: "Zu viele Registrierungsanfragen von dieser IP-Adresse, bitte versuche es später erneut.",
+  message: "You sending too many requests. Try again later.",
 });
 
 const accountCreationLimit = rateLimit({
   windowMs: 24 * 60 * 60 * 1000, // 24 hours
   max: maxaccountlimit, // Max 1 request per IP per day
   keyGenerator: function(req) { return req.headers['true-client-ip'] || req.headers['x-forwarded-for'] },
-  message: "Sie haben bereits die maximale Anzahl von Benutzerkonten für heute erstellt.",
+  message: "You cannot create more accounts.",
 });
 
 
@@ -566,7 +566,7 @@ app.post("/update-nickname/:token/:newNickname", checkRequestSize, verifyToken, 
      const containsBadWords = badWords.some(badWord => username.toLowerCase().includes(badWord));
 
 if (containsBadWords) {
-  res.status(400).send("Username is not allowed");
+  res.status(400).send("Nickname is not allowed");
   return;
 }
 
@@ -636,7 +636,7 @@ app.post("/register", checkRequestSize, registerLimiter, async (req, res) => {
     }
 
    if (username === password) {
-      res.status(400).send("identical types");
+      res.status(400).send("Name and password cannot be the same.");
       return;
     }
 
@@ -657,7 +657,7 @@ app.post("/register", checkRequestSize, registerLimiter, async (req, res) => {
     const containsBadWords = badWords.some(badWord => username.toLowerCase().includes(badWord));
 
 if (containsBadWords) {
-  res.status(400).send("Username is not allowed");
+  res.status(400).send("Name is not allowed");
   return;
 }
 
@@ -677,7 +677,7 @@ if (containsBadWords) {
     );
 
     if (existingUser) {
-      res.status(409).send("Username already taken");
+      res.status(409).send("Name already taken. Choose another one.");
       return;
     }
 
