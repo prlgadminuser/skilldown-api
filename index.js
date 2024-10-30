@@ -5,9 +5,9 @@ const rarity_normal = 0.8 //0.8
 const rarity_legendary = 0.995 //0.995
 const allgadgets = 3
 const friendMax = 30
-const maxaccountlimit = 3
+const maxaccountlimit = 1
 
-const badWords = ["undefined", "null", "liquem", "nigga", "nigger", "niga", "fuck", "ass"]; 
+const badWords = ["undefined", "null", "liquem", "nigga", "nigger", "niga", "fuck", "ass", "bitch", "hure", "schlampe", "hitler", "whore"]; 
 
 
 const loginrewardactive = true
