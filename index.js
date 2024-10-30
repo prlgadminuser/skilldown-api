@@ -33,7 +33,7 @@ const battlePassTiers = [
 const maxbattlepasstier = Math.max(...battlePassTiers.map(tier => tier.tier));
 
 const loginreward = [
- { reward: { items: ["I015"], coins: 500, boxes: 8 } },
+ { reward: { items: ["I015"], coins: 200, boxes: 4 } },
  //  { reward: { items: ["I011"] } },
   // { reward: { coins: 1000, items: ["A032", "B023"] } },
 ];
@@ -705,7 +705,7 @@ if (containsBadWords) {
           username,
           nickname: username,
           password: hashedPassword,
-          coins: 100,
+          coins: 0,
           created_at: currentTimestamp,
           country_code: finalCountryCode,
           token,
