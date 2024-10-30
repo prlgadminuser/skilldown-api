@@ -7,6 +7,8 @@ const allgadgets = 3
 const friendMax = 30
 const maxaccountlimit = 3
 
+const badWords = ["undefined", "null", "Liquem", "nigga", "nigger", "niga", "fuck", "ass"]; 
+
 
 const loginrewardactive = true
 
@@ -561,6 +563,13 @@ app.post("/update-nickname/:token/:newNickname", checkRequestSize, verifyToken, 
       return;
     }
 
+     const containsBadWords = badWords.some(badWord => username.toLowerCase().includes(badWord));
+
+if (containsBadWords) {
+  res.status(400).send("Username is not allowed");
+  return;
+}
+
     // Check if the new nickname is already taken by another user
     const nicknameExists = await userCollection.findOne(
       { nickname: { $regex: new RegExp(`^${newNickname}$`, "i") } },
@@ -644,6 +653,14 @@ app.post("/register", checkRequestSize, registerLimiter, async (req, res) => {
         );
       return;
     }
+
+    const containsBadWords = badWords.some(badWord => username.toLowerCase().includes(badWord));
+
+if (containsBadWords) {
+  res.status(400).send("Username is not allowed");
+  return;
+}
+
 
     if (!passwordRegex.test(password)) {
       res
