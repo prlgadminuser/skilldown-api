@@ -7,7 +7,7 @@ const allgadgets = 3
 const friendMax = 30
 const maxaccountlimit = 3
 
-const badWords = ["undefined", "null", "Liquem", "nigga", "nigger", "niga", "fuck", "ass"]; 
+const badWords = ["undefined", "null", "liquem", "nigga", "nigger", "niga", "fuck", "ass"]; 
 
 
 const loginrewardactive = true
