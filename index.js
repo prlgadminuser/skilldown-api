@@ -691,13 +691,13 @@ if (containsBadWords) {
 
     // Check account creation limit here
    
-
+ applyAccountCreationLimit(req, res, async () => {
       
         const hashedPassword = await bcrypt.hash(password, 10);
         const token = jwt.sign({ username }, tokenkey);
         const currentTimestamp = new Date();
 
-     applyAccountCreationLimit(req, res, async () => {
+    
 
         
 
@@ -707,7 +707,7 @@ if (containsBadWords) {
           username,
           nickname: username,
           password: hashedPassword,
-          coins: 0,
+          coins: 100,
           created_at: currentTimestamp,
           country_code: finalCountryCode,
           token,
