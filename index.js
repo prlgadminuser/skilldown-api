@@ -1017,10 +1017,13 @@ app.post("/buy-item/:token/:offerKey", checkRequestSize, verifyToken, async (req
     }
 
     // Deduct coins and add items to user's inventory in a single update operation
-    const updateFields = {
-      $inc: { coins: -price },
+
+     const updateFields = {
+      ...(price > 0 ? { $inc: { coins: -price } } : {}),
       $addToSet: { items: { $each: itemIds } },
     };
+
+
 
     await userCollection.updateOne({ username }, updateFields, { session });
 
