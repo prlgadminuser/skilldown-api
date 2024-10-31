@@ -707,7 +707,7 @@ if (containsBadWords) {
           username,
           nickname: username,
           password: hashedPassword,
-          coins: 100,
+          coins: 0,
           created_at: currentTimestamp,
           country_code: finalCountryCode,
           token,
@@ -717,7 +717,7 @@ if (containsBadWords) {
         });
 
 
-        const joinedMessage = `New user joined: ${username} - country code: ${country_code}.`;
+        const joinedMessage = `New user joined: ${username}`;
         webhook.send(joinedMessage);
 
         res.status(201).json({ token });
