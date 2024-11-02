@@ -563,7 +563,7 @@ app.post("/update-nickname/:token/:newNickname", checkRequestSize, verifyToken, 
       return;
     }
 
-     const containsBadWords = badWords.some(badWord => username.toLowerCase().includes(badWord));
+     const containsBadWords = badWords.some(badWord =>  newNickname.toLowerCase().includes(badWord));
 
 if (containsBadWords) {
   res.status(400).send("Nickname is not allowed");
