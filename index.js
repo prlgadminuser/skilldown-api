@@ -227,7 +227,7 @@ function containsProfanity(text) {
 
 const limiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 second window
-  max: 45,
+  max: 60,
   message: 'You sending too many requests. Try again later.',
   keyGenerator: function(req) { return req.headers['true-client-ip'] || req.headers['x-forwarded-for'] },
 //  handler: (req, res) => res.status(429).json({ message: 'lg_server_limit_reached' }),
