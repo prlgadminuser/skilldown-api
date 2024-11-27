@@ -54,22 +54,13 @@ function calculateRarityPercentages() {
     let previousThreshold = 0;
 
     for (const [rarity, config] of Object.entries(rarityConfig)) {
-        const percentage = ((config.threshold - previousThreshold) * 100).toFixed(2);
+        const percentage = ((config.threshold - previousThreshold) * 100).toFixed(2) + '%';
         rarityPercentages[rarity] = parseFloat(percentage);
         previousThreshold = config.threshold;
     }
 
     console.log("Rarity Percentages:", rarityPercentages);
     return rarityPercentages;
-}
-
-function determineRarity(rarityType) {
-    for (const [rarity, config] of Object.entries(rarityConfig)) {
-        if (rarityType < config.threshold) {
-            return rarity;
-        }
-    }
-    return "normal"; // Fallback to normal rarity
 }
 
 // Call calculateRarityPercentages to log the percentages at runtime
