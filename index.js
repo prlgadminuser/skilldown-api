@@ -41,10 +41,17 @@ const rarityConfig = {
        message: "success",
     },
     legendary: {
-        threshold: 1.0,
+        threshold: 0.999,
         coinsRange: [130, 200], // Coins for legendary and higher rarities
         itemCount: 2, // Number of custom items to award
         customItems: [{ id: "A029" }, { id: "I011" }], // Predefined items for legendary
+        message: "success",
+    },
+      impossible: {
+        threshold: 1.0,
+        coinsRange: [15, 30], // Coins for normal rarity
+        itemCount: 0, // No items for normal
+        customItems: null, // No custom items for normal
         message: "success",
     },
 };
