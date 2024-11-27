@@ -19,14 +19,14 @@ const rarityConfig = {
         threshold: 0.9,
         coinsRange: null, // No coins for rare
         itemCount: 2, // Number of unowned items to award (from customItems)
-        customItems: [{ id: "R001" }, { id: "R002" }, { id: "R003" }], // Predefined items for rare
+        customItems: [{ id: "I001" }, { id: "I002" }, { id: "I003" }], // Predefined items for rare
         message: "success",
     },
     legendary: {
         threshold: 1.0,
         coinsRange: [130, 200], // Coins for legendary and higher rarities
         itemCount: 2, // Number of custom items to award
-        customItems: [{ id: "L001" }, { id: "L002" }], // Predefined items for legendary
+        customItems: [{ id: "I001" }, { id: "I002" }], // Predefined items for legendary
         message: "success",
     },
 };
@@ -2081,13 +2081,24 @@ app.post("/buy-rarity-box/:token", checkRequestSize, verifyToken, async (req, re
 
         return res.json(rewards);
     } catch (error) {
+        // Log the error for debugging
+        console.error("Error occurred during transaction:", error);
+
+        // Abort transaction to ensure no partial updates
         await abortTransaction(session);
-        return res.status(500).json({ message: "An error occurred" });
+
+        // Return the specific error message to the client, if available
+        return res.status(500).json({
+            message: "An error occurred",
+            error: error.message || "Unknown error"
+        });
     } finally {
+        // End session after transaction
         endSession(session);
     }
 });
 
+// Function to determine the rarity based on a random number
 function determineRarity(rarityType) {
     for (const [rarity, config] of Object.entries(rarityConfig)) {
         if (rarityType < config.threshold) {
@@ -2097,6 +2108,7 @@ function determineRarity(rarityType) {
     return "normal"; // Fallback to normal rarity
 }
 
+// Function to get a random selection of items
 function getRandomItems(items, count) {
     const randomItems = [];
     while (randomItems.length < count && items.length > 0) {
@@ -2107,6 +2119,7 @@ function getRandomItems(items, count) {
     return randomItems;
 }
 
+// Function to generate rewards based on rarity
 function generateRewards(rarity, unownedItems, ownedItems) {
     const config = rarityConfig[rarity];
     const rewards = {
@@ -2149,6 +2162,7 @@ function generateRewards(rarity, unownedItems, ownedItems) {
     return rewards;
 }
 
+// Function to update user items and coins
 async function updateUserItemsAndCoins(username, rewards, session) {
     const { items, coins } = rewards;
     if (items && items.length > 0) {
@@ -2163,18 +2177,22 @@ async function updateUserItemsAndCoins(username, rewards, session) {
     }
 }
 
+// Function to get a random number within a range (min, max)
 function getRandomInRange([min, max]) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+// Function to get unowned items
 function getUnownedItems(allItemIds, ownedItems) {
     return allItemIds.filter(item => !ownedItems.includes(item.id));
 }
 
+// Function to roll for rarity (random value between 0 and 1)
 function rollForRarity() {
     return Math.random();
 }
 
+// Function to update the box count for the user
 async function updateBoxCount(username, count, session) {
     await userCollection.updateOne(
         { username },
@@ -2183,6 +2201,7 @@ async function updateBoxCount(username, count, session) {
     );
 }
 
+// Function to get user details from the database
 async function getUserDetails(username, session) {
     return await userCollection.findOne(
         { username },
@@ -2191,6 +2210,7 @@ async function getUserDetails(username, session) {
     );
 }
 
+// Function to abort the transaction in case of error
 async function abortTransaction(session) {
     try {
         await session.abortTransaction();
@@ -2199,6 +2219,7 @@ async function abortTransaction(session) {
     }
 }
 
+// Function to end the session after transaction completion or failure
 function endSession(session) {
     session.endSession();
 }
