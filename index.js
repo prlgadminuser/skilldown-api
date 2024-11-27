@@ -19,7 +19,31 @@ const rarityConfig = {
         threshold: 0.9,
         coinsRange: [1858, 3808], // No coins for rare
         itemCount: 2, // Number of unowned items to award (from customItems)
-        customItems: [{ id: "I001" }, { id: "I002" }, { id: "I003" }], // Predefined items for rare
+         customItems: [
+            { id: "A024" }, { id: "A007" }, { id: "A003" }, { id: "B021" },
+            { id: "A001" }, { id: "A014" }, { id: "B004" }, { id: "B003" },
+            { id: "B005" }, { id: "B011" }, { id: "B022" }, { id: "A008" },
+            { id: "A021" }, { id: "B015" }, { id: "B019" }, { id: "A029" },
+            { id: "B010" }, { id: "B017" }, { id: "B018" }, { id: "A010" },
+            { id: "B008" }, { id: "A030" }, { id: "A034" }, { id: "B002" },
+            { id: "B009" }, { id: "B013" }, { id: "A018" }, { id: "A036" },
+            { id: "B025" }, { id: "A005" }, { id: "A004" }, { id: "B001" },
+            { id: "B006" }, { id: "B024" }, { id: "A012" }, { id: "A015" },
+            { id: "A022" }, { id: "B023" }, { id: "A019" }, { id: "A011" },
+            { id: "B007" }, { id: "A023" }, { id: "A025" }, { id: "A031" },
+            { id: "B027" }, { id: "A017" }, { id: "A033" }, { id: "A035" },
+            { id: "B012" }, { id: "A027" }, { id: "A028" }, { id: "A037" },
+            { id: "A020" }, { id: "A026" }, { id: "B014" }, { id: "B020" },
+            { id: "A016" }, { id: "A032" }, { id: "B016" }, { id: "B026" },
+            { id: "A002" }, { id: "A006" }, { id: "A009" }, { id: "A013" },
+            { id: "B028" }, { id: "I006" }, { id: "I007" }, { id: "I016" },
+            { id: "P004" }, { id: "I001" }, { id: "I012" }, { id: "P003" },
+            { id: "I013" }, { id: "P006" }, { id: "P007" }, { id: "I004" },
+            { id: "P005" }, { id: "P001" }, { id: "P009" }, { id: "I008" },
+            { id: "I003" }, { id: "I002" }, { id: "I009" }, { id: "I015" },
+            { id: "P002" }, { id: "I011" }, { id: "I010" }, { id: "I014" },
+            { id: "I005" }, { id: "P008" }
+        ],
         message: "success",
     },
     legendary: {
@@ -30,6 +54,32 @@ const rarityConfig = {
         message: "success",
     },
 };
+
+function calculateRarityPercentages() {
+    const rarityPercentages = {};
+    let previousThreshold = 0;
+
+    for (const [rarity, config] of Object.entries(rarityConfig)) {
+        const percentage = ((config.threshold - previousThreshold) * 100).toFixed(2);
+        rarityPercentages[rarity] = parseFloat(percentage);
+        previousThreshold = config.threshold;
+    }
+
+    console.log("Rarity Percentages:", rarityPercentages);
+    return rarityPercentages;
+}
+
+function determineRarity(rarityType) {
+    for (const [rarity, config] of Object.entries(rarityConfig)) {
+        if (rarityType < config.threshold) {
+            return rarity;
+        }
+    }
+    return "normal"; // Fallback to normal rarity
+}
+
+// Call calculateRarityPercentages to log the percentages at runtime
+const rarityPercentages = calculateRarityPercentages();
 
 
 const badWords = ["undefined", "null", "liquem", "nigga", "nigger", "niga", "fuck", "ass", "bitch", "hure", "schlampe", "hitler", "whore"]; 
