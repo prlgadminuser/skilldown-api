@@ -2198,6 +2198,24 @@ async function abortTransaction(session) {
     }
 }
 
+async function updateUserItemsAndCoins(username, rewards, session) {
+    const { items, coins } = rewards;
+
+    // Update items if there are any new ones
+    if (items && items.length > 0) {
+        await userCollection.updateOne(
+            { username },
+            { $addToSet: { items: { $each: items } } }, // Add items only if they are not already owned
+            { session }
+        );
+    }
+
+    // Update coins if there are any new coins
+    if (coins && coins.length > 0) {
+        await updateCoins(username, coins.reduce((sum, coin) => sum + coin, 0), session);
+    }
+}
+
 // Function to end the session after transaction completion or failure
 function endSession(session) {
     session.endSession();
