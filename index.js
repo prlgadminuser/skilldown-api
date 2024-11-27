@@ -2124,7 +2124,7 @@ function generateRewards(rarity, ownedItems) {
     // If rarity is not normal, handle item logic
     const unownedCustomItems = config.customItems.filter(item => !ownedItems.includes(item.id));
 
-    if (!rarity === "normal") {
+    if (rarity !== "normal") {
         // Check if the user owns at least 2 items from the custom items pool
         if (unownedCustomItems.length >= 2) {
             // Reward the user with the missing custom items
