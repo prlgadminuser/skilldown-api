@@ -2183,6 +2183,15 @@ async function updateBoxCount(username, count, session) {
     );
 }
 
+async function updateCoins(username, coinsToAdd, session) {
+    // Update the user's coin balance by adding the coinsToAdd amount
+    await userCollection.updateOne(
+        { username }, // Find the user by their username
+        { $inc: { coins: coinsToAdd } }, // Increment the coins by coinsToAdd
+        { session } // Include the session for transaction consistency
+    );
+}
+
 // Function to get user details from the database
 async function getUserDetails(username, session) {
     return await userCollection.findOne(
