@@ -1561,6 +1561,7 @@ app.get("/get-user-inventory/:token", checkRequestSize, verifyToken, async (req,
       lbtheme: configrow.lobbytheme, // Ensure lobbytheme is defined elsewhere
       season_end: configrow.season_end,
       onetimereward,
+      boxrarities: rarityPercentages,
     };
 
     // Send JSON response
