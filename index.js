@@ -2113,20 +2113,21 @@ function generateRewards(rarity, ownedItems) {
         message: config.message,
     };
 
-    // Get the list of unowned custom items by filtering out the ones the user already owns
-    const unownedCustomItems = config.customItems.filter(item => !ownedItems.includes(item.id));
-
+    // If rarity is normal, only coins are rewarded
     if (rarity === "normal") {
-        // Normal rarity only gives coins
         for (let i = 0; i < 2; i++) {
             rewards.coins.push(getRandomInRange(config.coinsRange));
         }
-    } else if (rarity === "rare" || rarity === "legendary") {
-        // Rare and Legendary give custom items (if the user doesn't own at least 2)
-        
+        return rewards; // No need to calculate items for normal rarity
+    }
+
+    // If rarity is not normal, handle item logic
+    const unownedCustomItems = config.customItems.filter(item => !ownedItems.includes(item.id));
+
+    if (!rarity === "normal") {
         // Check if the user owns at least 2 items from the custom items pool
         if (unownedCustomItems.length >= 2) {
-            // If the user doesn't own enough items, reward them with 2 random custom items
+            // Reward the user with the missing custom items
             rewards.items = getRandomItems(unownedCustomItems, config.itemCount).map(item => item.id);
         } else {
             // If the user owns 2 or more custom items, fallback to coins
