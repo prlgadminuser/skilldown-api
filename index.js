@@ -2096,6 +2096,16 @@ function determineRarity(rarityType) {
     return "normal"; // Fallback to normal rarity
 }
 
+function getRandomItems(items, count) {
+    const randomItems = [];
+    while (randomItems.length < count && items.length > 0) {
+        const randomIndex = Math.floor(Math.random() * items.length);
+        randomItems.push(items[randomIndex]);
+        items.splice(randomIndex, 1); // Remove selected item
+    }
+    return randomItems;
+}
+
 function generateRewards(rarity, unownedItems, ownedItems) {
     const config = rarityConfig[rarity];
     const rewards = {
