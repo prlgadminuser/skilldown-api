@@ -9,14 +9,14 @@ const maxaccountlimit = 6
 
 const rarityConfig = {
     normal: {
-        threshold: 0.7,
+        threshold: 0.8,
         coinsRange: [15, 30], // Coins for normal rarity
         itemCount: 0, // No items for normal
         customItems: null, // No custom items for normal
         message: "success",
     },
     rare: {
-        threshold: 0.9,
+        threshold: 0.995,
         coinsRange: [1858, 3808], // No coins for rare
         itemCount: 2, // Number of unowned items to award (from customItems)
         customItems: [
