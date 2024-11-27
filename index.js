@@ -2060,15 +2060,10 @@ app.post("/buy-rarity-box/:token", checkRequestSize, verifyToken, async (req, re
         // Deduct a box
         await updateBoxCount(username, -1, session);
 
-        // Fetch items
-        const ownedItems = user.items || [];
-        const allItemIds = await getAllItemIds();
-        const unownedItems = getUnownedItems(allItemIds, ownedItems);
-
         // Determine rarity and rewards
         const rarityType = rollForRarity();
         const rarity = determineRarity(rarityType);
-        const rewards = generateRewards(rarity, unownedItems, ownedItems);
+        const rewards = generateRewards(rarity, user.items);
 
         // Update user rewards
         await updateUserItemsAndCoins(username, rewards, session);
@@ -2108,19 +2103,8 @@ function determineRarity(rarityType) {
     return "normal"; // Fallback to normal rarity
 }
 
-// Function to get a random selection of items
-function getRandomItems(items, count) {
-    const randomItems = [];
-    while (randomItems.length < count && items.length > 0) {
-        const randomIndex = Math.floor(Math.random() * items.length);
-        randomItems.push(items[randomIndex]);
-        items.splice(randomIndex, 1); // Remove selected item
-    }
-    return randomItems;
-}
-
 // Function to generate rewards based on rarity
-function generateRewards(rarity, unownedItems, ownedItems) {
+function generateRewards(rarity, ownedItems) {
     const config = rarityConfig[rarity];
     const rewards = {
         coins: [],
@@ -2137,15 +2121,7 @@ function generateRewards(rarity, unownedItems, ownedItems) {
     } else if (rarity === "rare") {
         // Rare rarity gives customItems, no coins
         if (config.customItems) {
-            const unownedCustomItems = config.customItems.filter(item => !ownedItems.includes(item.id));
-            if (unownedCustomItems.length >= config.itemCount) {
-                rewards.items = getRandomItems(unownedCustomItems, config.itemCount).map(item => item.id);
-            } else {
-                // If not enough unowned custom items, give coins
-                for (let i = 0; i < 2; i++) {
-                    rewards.coins.push(getRandomInRange(config.coinsRange));
-                }
-            }
+            rewards.items = getRandomItems(config.customItems, config.itemCount).map(item => item.id);
         }
     } else {
         // Legendary and better rarities give 2 custom items
@@ -2160,6 +2136,17 @@ function generateRewards(rarity, unownedItems, ownedItems) {
     }
 
     return rewards;
+}
+
+// Function to get a random selection of items
+function getRandomItems(items, count) {
+    const randomItems = [];
+    while (randomItems.length < count && items.length > 0) {
+        const randomIndex = Math.floor(Math.random() * items.length);
+        randomItems.push(items[randomIndex]);
+        items.splice(randomIndex, 1); // Remove selected item
+    }
+    return randomItems;
 }
 
 // Function to update user items and coins
@@ -2180,11 +2167,6 @@ async function updateUserItemsAndCoins(username, rewards, session) {
 // Function to get a random number within a range (min, max)
 function getRandomInRange([min, max]) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-// Function to get unowned items
-function getUnownedItems(allItemIds, ownedItems) {
-    return allItemIds.filter(item => !ownedItems.includes(item.id));
 }
 
 // Function to roll for rarity (random value between 0 and 1)
