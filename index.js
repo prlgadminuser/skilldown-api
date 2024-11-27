@@ -11,25 +11,26 @@ const rarityConfig = {
     normal: {
         threshold: 0.7,
         coinsRange: [15, 30], // Coins for normal rarity
-        itemCount: 0, // Ignored for normal
+        itemCount: 0, // No items for normal
         customItems: null, // No custom items for normal
         message: "success",
     },
     rare: {
         threshold: 0.9,
         coinsRange: null, // No coins for rare
-        itemCount: 2, // Number of unowned items to award
-        customItems: null, // No custom items for rare
+        itemCount: 2, // Number of unowned items to award (from customItems)
+        customItems: [{ id: "R001" }, { id: "R002" }, { id: "R003" }], // Predefined items for rare
         message: "success",
     },
     legendary: {
         threshold: 1.0,
-        coinsRange: [130, 200], // Coins if all custom items are owned
-        itemCount: 0, // Ignored for legendary
+        coinsRange: [130, 200], // Coins for legendary and higher rarities
+        itemCount: 2, // Number of custom items to award
         customItems: [{ id: "L001" }, { id: "L002" }], // Predefined items for legendary
         message: "success",
     },
 };
+
 
 const badWords = ["undefined", "null", "liquem", "nigga", "nigger", "niga", "fuck", "ass", "bitch", "hure", "schlampe", "hitler", "whore"]; 
 
@@ -2116,29 +2117,31 @@ function generateRewards(rarity, unownedItems, ownedItems) {
     };
 
     if (rarity === "normal") {
-        // Normal rarity only gives coins
+        // Normal rarity only gives 2 drops of coins
         for (let i = 0; i < 2; i++) {
             rewards.coins.push(getRandomInRange(config.coinsRange));
         }
     } else if (rarity === "rare") {
-        // Rare rarity gives unowned items, no coins
-        if (unownedItems.length >= config.itemCount) {
-            rewards.items = getRandomItems(unownedItems, config.itemCount).map(item => item.id);
-        } else {
-            rewards.items = getRandomItems(unownedItems, unownedItems.length).map(item => item.id); // Give all available unowned items
-        }
-    } else {
-        // Other rarities give predefined custom items or coins if all are owned
+        // Rare rarity gives customItems, no coins
         if (config.customItems) {
-            const allCustomItemsOwned = config.customItems.every(item => ownedItems.includes(item.id));
-            if (!allCustomItemsOwned) {
-                // Award custom items if not all are owned
-                rewards.items = config.customItems.map(item => item.id);
+            const unownedCustomItems = config.customItems.filter(item => !ownedItems.includes(item.id));
+            if (unownedCustomItems.length >= config.itemCount) {
+                rewards.items = getRandomItems(unownedCustomItems, config.itemCount).map(item => item.id);
             } else {
-                // Award coins if all custom items are owned
+                // If not enough unowned custom items, give coins
                 for (let i = 0; i < 2; i++) {
                     rewards.coins.push(getRandomInRange(config.coinsRange));
                 }
+            }
+        }
+    } else {
+        // Legendary and better rarities give 2 custom items
+        if (config.customItems) {
+            rewards.items = getRandomItems(config.customItems, config.itemCount).map(item => item.id);
+        } else {
+            // If no custom items, give coins
+            for (let i = 0; i < 2; i++) {
+                rewards.coins.push(getRandomInRange(config.coinsRange));
             }
         }
     }
@@ -2186,11 +2189,6 @@ async function getUserDetails(username, session) {
         { projection: { username: 1, boxes: 1, items: 1, coins: 1 } },
         { session }
     );
-}
-
-async function getAllItemIds() {
-    // Simulating fetching all item IDs (replace with actual DB call)
-    return await PackItemsCollection.find({}, { _id: 0, id: 1 }).toArray();
 }
 
 async function abortTransaction(session) {
