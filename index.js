@@ -7,6 +7,30 @@ const allgadgets = 3
 const friendMax = 30
 const maxaccountlimit = 6
 
+const rarityConfig = {
+    normal: {
+        threshold: 0.7,
+        coinsRange: [15, 30], // Coins for normal rarity
+        itemCount: 0, // Ignored for normal
+        customItems: null, // No custom items for normal
+        message: "success",
+    },
+    rare: {
+        threshold: 0.9,
+        coinsRange: null, // No coins for rare
+        itemCount: 2, // Number of unowned items to award
+        customItems: null, // No custom items for rare
+        message: "success",
+    },
+    legendary: {
+        threshold: 1.0,
+        coinsRange: [130, 200], // Coins if all custom items are owned
+        itemCount: 0, // Ignored for legendary
+        customItems: [{ id: "L001" }, { id: "L002" }], // Predefined items for legendary
+        message: "success",
+    },
+};
+
 const badWords = ["undefined", "null", "liquem", "nigga", "nigger", "niga", "fuck", "ass", "bitch", "hure", "schlampe", "hitler", "whore"]; 
 
 
@@ -2016,7 +2040,6 @@ async function checkRequestSize(req, res, next) {
 app.post("/buy-rarity-box/:token", checkRequestSize, verifyToken, async (req, res) => {
     const token = req.params.token;
     const username = req.user.username;
-    const boxprice = 200;
 
     const session = client.startSession();
     session.startTransaction();
@@ -2025,36 +2048,32 @@ app.post("/buy-rarity-box/:token", checkRequestSize, verifyToken, async (req, re
         // Fetch user details
         const user = await getUserDetails(username, session);
 
-        // Check if user exists
+        // Validate user and box count
         if (!user) {
-            return res.status(404).json({ error: "error" });
+            return res.status(404).json({ error: "User not found" });
         }
-
-        // Check if user has boxes left
         if (user.boxes < 1) {
-            return res.status(404).json({ error: "No boxes left" });
+            return res.status(400).json({ error: "No boxes left" });
         }
 
-        // Update user's box count
+        // Deduct a box
         await updateBoxCount(username, -1, session);
 
-        // Fetch user's owned items
+        // Fetch items
         const ownedItems = user.items || [];
-
-        // Fetch all item ids from the rarity box
         const allItemIds = await getAllItemIds();
-
-        // Find unowned items
         const unownedItems = getUnownedItems(allItemIds, ownedItems);
 
-        // Roll for rarity
+        // Determine rarity and rewards
         const rarityType = rollForRarity();
+        const rarity = determineRarity(rarityType);
+        const rewards = generateRewards(rarity, unownedItems, ownedItems);
 
-        // Determine rewards based on rarity
-        const rewards = determineRewards(rarityType, unownedItems, ownedItems);
-
-        // Update user's items and coins
+        // Update user rewards
         await updateUserItemsAndCoins(username, rewards, session);
+
+        // Log rarity details for tracking
+        console.log(`Rarity: ${rarity}, Rewards:`, rewards);
 
         // Commit transaction
         await session.commitTransaction();
@@ -2062,136 +2081,121 @@ app.post("/buy-rarity-box/:token", checkRequestSize, verifyToken, async (req, re
         return res.json(rewards);
     } catch (error) {
         await abortTransaction(session);
-        return res.status(500).json({ message: "error" });
+        return res.status(500).json({ message: "An error occurred" });
     } finally {
         endSession(session);
     }
 });
 
-
-function determineRewards(rarityType, unownedItems, ownedItems) {
-    let rewards = {};
-    if (rarityType < rarity_normal) {
-        rewards.coins = [getRandomCoinsReward(), getRandomCoinsReward()];
-        rewards.items = [];
-        rewards.rarity = "normal";
-        rewards.message = `success`;
-    } else if (rarityType < rarity_legendary) {
-        //rewards.coins = [getRandomCoinsReward(), getRandomCoinsReward()];
-       if (unownedItems && unownedItems.length >= 2) {
-    rewards.items = getRandomItems(unownedItems, 2).map(item => item.id);
-} else {
-    // If unownedItems is undefined or has less than 2 items, assign coins instead
-    rewards.coins = [getRandomCoinsReward(), getRandomCoinsReward()];
-}
-        rewards.rarity = "rare";
-        rewards.message = `success`;
-    } else {
-        rewards = handleLegendaryRewards(ownedItems);
+function determineRarity(rarityType) {
+    for (const [rarity, config] of Object.entries(rarityConfig)) {
+        if (rarityType < config.threshold) {
+            return rarity;
+        }
     }
-    return {
-        message: rewards.message,
-        rewards: {
-            coins: rewards.coins || [],
-            items: rewards.items || [],
-            rarity: rewards.rarity || "normal",
-        },
+    return "normal"; // Fallback to normal rarity
+}
+
+function generateRewards(rarity, unownedItems, ownedItems) {
+    const config = rarityConfig[rarity];
+    const rewards = {
+        coins: [],
+        items: [],
+        rarity,
+        message: config.message,
     };
+
+    if (rarity === "normal") {
+        // Normal rarity only gives coins
+        for (let i = 0; i < 2; i++) {
+            rewards.coins.push(getRandomInRange(config.coinsRange));
+        }
+    } else if (rarity === "rare") {
+        // Rare rarity gives unowned items, no coins
+        if (unownedItems.length >= config.itemCount) {
+            rewards.items = getRandomItems(unownedItems, config.itemCount).map(item => item.id);
+        } else {
+            rewards.items = getRandomItems(unownedItems, unownedItems.length).map(item => item.id); // Give all available unowned items
+        }
+    } else {
+        // Other rarities give predefined custom items or coins if all are owned
+        if (config.customItems) {
+            const allCustomItemsOwned = config.customItems.every(item => ownedItems.includes(item.id));
+            if (!allCustomItemsOwned) {
+                // Award custom items if not all are owned
+                rewards.items = config.customItems.map(item => item.id);
+            } else {
+                // Award coins if all custom items are owned
+                for (let i = 0; i < 2; i++) {
+                    rewards.coins.push(getRandomInRange(config.coinsRange));
+                }
+            }
+        }
+    }
+
+    return rewards;
 }
 
 async function updateUserItemsAndCoins(username, rewards, session) {
-    if (rewards.rewards.items && rewards.rewards.items.length > 0) {
+    const { items, coins } = rewards;
+    if (items && items.length > 0) {
         await userCollection.updateOne(
             { username },
-            { $addToSet: { items: { $each: rewards.rewards.items } } }, // Use rewards.rewards.items directly
+            { $addToSet: { items: { $each: items } } },
             { session }
         );
     }
-    if (rewards.rewards.coins) {
-        await updateCoins(username, rewards.rewards.coins.reduce((a, b) => a + b, 0), session);
+    if (coins && coins.length > 0) {
+        await updateCoins(username, coins.reduce((sum, coin) => sum + coin, 0), session);
     }
 }
 
-async function getUserDetails(username, session) {
-  return await userCollection.findOne(
-    { username },
-    { projection: { _id: 0, username: 1, boxes: 1, items: 1, coins: 1 } },
-    { session }
-  );
-}
-
-async function updateBoxCount(username, count, session) {
-  await userCollection.updateOne(
-    { username },
-    { $inc: { boxes: count } },
-    { session }
-  );
+function getRandomInRange([min, max]) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
 function getUnownedItems(allItemIds, ownedItems) {
-  return allItemIds.filter(item => !ownedItems.includes(item.id));
+    return allItemIds.filter(item => !ownedItems.includes(item.id));
 }
-
-function getRandomCoinsReward() {
-  return Math.floor(Math.random() * 30) + 15;
-}
-
-function getRandomCoinsReward2() {
-  return Math.floor(Math.random() * 200) + 130;
-}
-
 
 function rollForRarity() {
-  return Math.random();
+    return Math.random();
 }
 
-
-
-async function updateCoins(username, amount, session) {
-  await userCollection.updateOne(
-    { username },
-    { $inc: { coins: amount } },
-    { session }
-  );
+async function updateBoxCount(username, count, session) {
+    await userCollection.updateOne(
+        { username },
+        { $inc: { boxes: count } },
+        { session }
+    );
 }
 
-function handleLegendaryRewards(ownedItems) {
-  const definedItems = [{ id: "A029" }, { id: "I011" }];
-  const definedItemsOwned = definedItems.some(item => ownedItems.includes(item.id));
-  if (definedItemsOwned) {
-    const rewards = {};
-        rewards.coins = [getRandomCoinsReward2(), getRandomCoinsReward2()];
-        rewards.items = [];
-        rewards.rarity = "legendary";
-        rewards.message = `success`;
-     return rewards;
-  } else {
-    return {
-      //coins: [getRandomCoinsReward(), getRandomCoinsReward()],
-      items: definedItems.map(item => item.id),
-      rarity: "legendary",
-    };
-  }
-}
-
-async function abortTransaction(session) {
-  if (session && session.inTransaction()) {
-    await session.abortTransaction();
-  }
-}
-
-function endSession(session) {
-  if (session) {
-    session.endSession();
-  }
+async function getUserDetails(username, session) {
+    return await userCollection.findOne(
+        { username },
+        { projection: { username: 1, boxes: 1, items: 1, coins: 1 } },
+        { session }
+    );
 }
 
 async function getAllItemIds() {
+    // Simulating fetching all item IDs (replace with actual DB call)
     return await PackItemsCollection.find({}, { _id: 0, id: 1 }).toArray();
 }
 
+async function abortTransaction(session) {
+    try {
+        await session.abortTransaction();
+    } catch (err) {
+        console.error("Error aborting transaction:", err);
+    }
+}
 
+function endSession(session) {
+    session.endSession();
+}
 
+// Configuration for rarities
 app.post("/upgrade-battle-pass/:token", checkRequestSize, verifyToken, async (req, res) => {
   const username = req.user.username;
 
