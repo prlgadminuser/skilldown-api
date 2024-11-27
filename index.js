@@ -9,21 +9,21 @@ const maxaccountlimit = 6
 
 const rarityConfig = {
     normal: {
-        threshold: 0.7,
+        threshold: 70,
         coinsRange: [15, 30], // Coins for normal rarity
         itemCount: 0, // Ignored for normal
         customItems: null, // No custom items for normal
         message: "success",
     },
     rare: {
-        threshold: 0.9,
+        threshold: 20,
         coinsRange: null, // No coins for rare
         itemCount: 2, // Number of unowned items to award
         customItems: null, // No custom items for rare
         message: "success",
     },
     legendary: {
-        threshold: 1.0,
+        threshold: 10,
         coinsRange: [130, 200], // Coins if all custom items are owned
         itemCount: 0, // Ignored for legendary
         customItems: [{ id: "L001" }, { id: "L002" }], // Predefined items for legendary
