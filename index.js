@@ -2113,22 +2113,23 @@ function generateRewards(rarity, ownedItems) {
         message: config.message,
     };
 
+    // Get the list of unowned custom items by filtering out the ones the user already owns
+    const unownedCustomItems = config.customItems.filter(item => !ownedItems.includes(item.id));
+
     if (rarity === "normal") {
-        // Normal rarity only gives 2 drops of coins
+        // Normal rarity only gives coins
         for (let i = 0; i < 2; i++) {
             rewards.coins.push(getRandomInRange(config.coinsRange));
         }
-    } else if (rarity === "rare") {
-        // Rare rarity gives customItems, no coins
-        if (config.customItems) {
-            rewards.items = getRandomItems(config.customItems, config.itemCount).map(item => item.id);
-        }
-    } else {
-        // Legendary and better rarities give 2 custom items
-        if (config.customItems) {
-            rewards.items = getRandomItems(config.customItems, config.itemCount).map(item => item.id);
+    } else if (rarity === "rare" || rarity === "legendary") {
+        // Rare and Legendary give custom items (if the user doesn't own at least 2)
+        
+        // Check if the user owns at least 2 items from the custom items pool
+        if (unownedCustomItems.length >= 2) {
+            // If the user doesn't own enough items, reward them with 2 random custom items
+            rewards.items = getRandomItems(unownedCustomItems, config.itemCount).map(item => item.id);
         } else {
-            // If no custom items, give coins
+            // If the user owns 2 or more custom items, fallback to coins
             for (let i = 0; i < 2; i++) {
                 rewards.coins.push(getRandomInRange(config.coinsRange));
             }
@@ -2147,21 +2148,6 @@ function getRandomItems(items, count) {
         items.splice(randomIndex, 1); // Remove selected item
     }
     return randomItems;
-}
-
-// Function to update user items and coins
-async function updateUserItemsAndCoins(username, rewards, session) {
-    const { items, coins } = rewards;
-    if (items && items.length > 0) {
-        await userCollection.updateOne(
-            { username },
-            { $addToSet: { items: { $each: items } } },
-            { session }
-        );
-    }
-    if (coins && coins.length > 0) {
-        await updateCoins(username, coins.reduce((sum, coin) => sum + coin, 0), session);
-    }
 }
 
 // Function to get a random number within a range (min, max)
@@ -2183,6 +2169,7 @@ async function updateBoxCount(username, count, session) {
     );
 }
 
+// Function to update the user's coin balance
 async function updateCoins(username, coinsToAdd, session) {
     // Update the user's coin balance by adding the coinsToAdd amount
     await userCollection.updateOne(
@@ -2214,7 +2201,6 @@ async function abortTransaction(session) {
 function endSession(session) {
     session.endSession();
 }
-
 // Configuration for rarities
 app.post("/upgrade-battle-pass/:token", checkRequestSize, verifyToken, async (req, res) => {
   const username = req.user.username;
