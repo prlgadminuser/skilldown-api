@@ -2121,7 +2121,7 @@ app.post("/buy-rarity-box/:token", checkRequestSize, verifyToken, async (req, re
         // Return the specific error message to the client, if available
         return res.status(500).json({
             message: "An error occurred",
-            error: error.message || "Unknown error"
+            //error: error.message || "Unknown error"
         });
     } finally {
         // End session after transaction
