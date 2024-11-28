@@ -47,7 +47,21 @@ const rarityConfig = {
         customItems: [{ id: "A029" }, { id: "I011" }], // Predefined items for legendary
         message: "success",
     },
-      impossible: {
+      mythic: {
+        threshold: 0.9995, // New rarity with the same chance as ultimate
+        coinsRange: [500, 1000], // Higher coin rewards
+        itemCount: 3, // Number of items to award
+        customItems: [{ id: "M001" }, { id: "M002" }, { id: "M003" }], // Unique items for mythic
+        message: "You obtained a Mythic reward!",
+    },
+    ultimate: {
+        threshold: 0.9995, // New rarity with the same chance as mythic
+        coinsRange: [700, 1200], // High coin rewards
+        itemCount: 4, // More items to award
+        customItems: [{ id: "U001" }, { id: "U002" }, { id: "U003" }, { id: "U004" }], // Unique items for ultimate
+        message: "You obtained an Ultimate reward!",
+    },
+    impossible: {
         threshold: 1.0,
         coinsRange: [15, 30], // Coins for normal rarity
         itemCount: 0, // No items for normal
