@@ -16,7 +16,7 @@ const rarityConfig = {
         message: "success",
     },
     rare: {
-        threshold: 0.9,
+        threshold: 0.995,
         coinsRange: [1858, 3808], // No coins for rare
         itemCount: 2, // Number of unowned items to award (from customItems)
         customItems: [
@@ -41,31 +41,10 @@ const rarityConfig = {
        message: "success",
     },
     legendary: {
-        threshold: 0.9,
+        threshold: 1.0,
         coinsRange: [130, 200], // Coins for legendary and higher rarities
         itemCount: 2, // Number of custom items to award
         customItems: [{ id: "A029" }, { id: "I011" }], // Predefined items for legendary
-        message: "success",
-    },
-      mythic: {
-        threshold: 0.9, // New rarity with the same chance as ultimate
-        coinsRange: [500, 1000], // Higher coin rewards
-        itemCount: 3, // Number of items to award
-        customItems: [{ id: "A001" }, { id: "A002" }, { id: "A003" }], // Unique items for mythic
-        message: "success",
-    },
-    ultimate: {
-        threshold: 0.9, // New rarity with the same chance as mythic
-        coinsRange: [700, 1200], // High coin rewards
-        itemCount: 4, // More items to award
-        customItems: [{ id: "B001" }, { id: "B002" }, { id: "B003" }, { id: "B004" }], // Unique items for ultimate
-        message: "success",
-    },
-    impossible: {
-        threshold: 1.0,
-        coinsRange: [15, 30], // Coins for normal rarity
-        itemCount: 0, // No items for normal
-        customItems: null, // No custom items for normal
         message: "success",
     },
 };
