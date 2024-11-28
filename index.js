@@ -74,30 +74,33 @@ function calculateRarityPercentages() {
     const rarityPercentages = {};
     let previousThreshold = 0;
 
-    // Group rarities by thresholds
-    const thresholdGroups = {};
     for (const [rarity, config] of Object.entries(rarityConfig)) {
-        if (!thresholdGroups[config.threshold]) {
-            thresholdGroups[config.threshold] = [];
-        }
-        thresholdGroups[config.threshold].push(rarity);
-    }
-
-    // Calculate percentages for each rarity
-    for (const [threshold, rarities] of Object.entries(thresholdGroups)) {
-        const thresholdValue = parseFloat(threshold); // Convert threshold to a number
-        const range = thresholdValue - previousThreshold;
-        const percentagePerRarity = (range * 100) / rarities.length; // Split percentage across rarities
-
-        for (const rarity of rarities) {
-            rarityPercentages[rarity] = parseFloat(percentagePerRarity.toFixed(2));
-        }
-
-        previousThreshold = thresholdValue; // Update previous threshold
+        const percentage = ((config.threshold - previousThreshold) * 100).toFixed(2) + '%';
+        rarityPercentages[rarity] = parseFloat(percentage);
+        previousThreshold = config.threshold;
     }
 
     console.log("Rarity Percentages:", rarityPercentages);
     return rarityPercentages;
+}
+
+// Call calculateRarityPercentages to log the percentages at runtime
+const rarityPercentages = calculateRarityPercentages(); based on this: function determineRarity(rarityType) {
+    const matchingRarities = [];
+
+    for (const [rarity, config] of Object.entries(rarityConfig)) {
+        if (rarityType < config.threshold) {
+            matchingRarities.push(rarity);
+        }
+    }
+
+    if (matchingRarities.length > 0) {
+        // Randomly pick one rarity from the matching rarities
+        const randomIndex = Math.floor(Math.random() * matchingRarities.length);
+        return matchingRarities[randomIndex];
+    }
+
+    return "normal"; // Fallback to normal rarity
 }
 
 
