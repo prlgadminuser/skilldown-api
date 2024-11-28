@@ -16,7 +16,7 @@ const rarityConfig = {
         message: "success",
     },
     rare: {
-        threshold: 0.999,
+        threshold: 0.9995,
         coinsRange: [15, 25], // No coins for rare
         itemCount: 2, // Number of unowned items to award (from customItems)
         customItems: [
