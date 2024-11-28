@@ -85,27 +85,8 @@ function calculateRarityPercentages() {
 }
 
 // Call calculateRarityPercentages to log the percentages at runtime
-const rarityPercentages = calculateRarityPercentages(); based on this: function determineRarity(rarityType) {
-    const matchingRarities = [];
+const rarityPercentages = calculateRarityPercentages(); 
 
-    for (const [rarity, config] of Object.entries(rarityConfig)) {
-        if (rarityType < config.threshold) {
-            matchingRarities.push(rarity);
-        }
-    }
-
-    if (matchingRarities.length > 0) {
-        // Randomly pick one rarity from the matching rarities
-        const randomIndex = Math.floor(Math.random() * matchingRarities.length);
-        return matchingRarities[randomIndex];
-    }
-
-    return "normal"; // Fallback to normal rarity
-}
-
-
-// Call calculateRarityPercentages to log the percentages at runtime
-const rarityPercentages = calculateRarityPercentages();
 
 
 const badWords = ["undefined", "null", "liquem", "nigga", "nigger", "niga", "fuck", "ass", "bitch", "hure", "schlampe", "hitler", "whore"]; 
