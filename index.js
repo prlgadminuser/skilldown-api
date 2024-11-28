@@ -2171,31 +2171,12 @@ app.post("/buy-rarity-box/:token", checkRequestSize, verifyToken, async (req, re
 });
 
 // Function to determine the rarity based on a random number
-/*function determineRarity(rarityType) {
+function determineRarity(rarityType) {
     for (const [rarity, config] of Object.entries(rarityConfig)) {
         if (rarityType < config.threshold) {
             return rarity;
         }
     }
-    return "normal"; // Fallback to normal rarity
-}
-
-*/
-function determineRarity(rarityType) {
-    const matchingRarities = [];
-
-    for (const [rarity, config] of Object.entries(rarityConfig)) {
-        if (rarityType < config.threshold) {
-            matchingRarities.push(rarity);
-        }
-    }
-
-    if (matchingRarities.length > 0) {
-        // Randomly pick one rarity from the matching rarities
-        const randomIndex = Math.floor(Math.random() * matchingRarities.length);
-        return matchingRarities[randomIndex];
-    }
-
     return "normal"; // Fallback to normal rarity
 }
 
