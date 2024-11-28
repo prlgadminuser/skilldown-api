@@ -18,7 +18,7 @@ const rarityConfig = {
     rare: {
         threshold: 0.95,
         coinsRange: [15, 25], // No coins for rare
-        itemCount: 30, // Number of unowned items to award (from customItems)
+        itemCount: 2, // Number of unowned items to award (from customItems)
         customItems: [
     { id: "A001" }, { id: "A002" }, { id: "A003" }, { id: "A004" },
     { id: "A005" }, { id: "A006" }, { id: "A007" }, { id: "A008" },
