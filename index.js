@@ -1914,7 +1914,7 @@ app.get("/total-coins", checkRequestSize, async (req, res) => {
 
 
 
-app.get("/global-place/:token", checkRequestSize, verifyToken, async (req, res) => {
+app.get("/global-place-3536667/:token", checkRequestSize, verifyToken, async (req, res) => {
   const username = req.user.username;
 
   try {
