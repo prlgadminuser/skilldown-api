@@ -851,7 +851,7 @@ app.get("/get-coins/:token", checkRequestSize, verifyToken, async (req, res) => 
     const lastCollected = user.last_collected || 0;
     const nextcount = user.coinsnext || 0;
 
-    if (!(lastCollected + nextcount) < Date.now()) {
+    if (lastCollected + nextcount < Date.now()) {
       await session.abortTransaction();
       res.status(400).send("You can collect coins only once every 24 hours.");
       return;
