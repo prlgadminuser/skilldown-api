@@ -837,7 +837,7 @@ app.get("/get-coins/:token", checkRequestSize, verifyToken, async (req, res) => 
     // Check if the user exists in the database
     const user = await userCollection.findOne(
       { username },
-      { projection: { _id: 0, username: 1, last_collected: 1 } },
+      { projection: { _id: 0, username: 1, last_collected: 1, coinsnext: 1 } },
       { session }
     );
 
@@ -848,9 +848,10 @@ app.get("/get-coins/:token", checkRequestSize, verifyToken, async (req, res) => 
     }
 
     // Check if enough time has passed since the last coin collection
-    const lastCollected = user.last_collected;
+    const lastCollected = user.last_collected || 0;
+    const nextcount = user.coinsnext || 0;
 
-    if (!canCollectCoins(lastCollected)) {
+    if (lastCollected + nextcount > Date.now()) {
       await session.abortTransaction();
       res.status(400).send("You can collect coins only once every 24 hours.");
       return;
@@ -858,7 +859,7 @@ app.get("/get-coins/:token", checkRequestSize, verifyToken, async (req, res) => 
 
      const coinsdata = await shopcollection.findOne(
       { _id: "dailyrewardconfig" },
-       { projection: { coinsmin: 1, coinsmax: 1 } },
+       { projection: { coinsmin: 1, coinsmax: 1, next: 1 } },
     );
 
 
@@ -871,6 +872,7 @@ app.get("/get-coins/:token", checkRequestSize, verifyToken, async (req, res) => 
       {
         $inc: { coins: coinsToAdd },
         $set: { last_collected: Date.now() },
+        $set: { coinsnext: coinsdata.next },
       },
       { session }
     );
@@ -886,6 +888,7 @@ app.get("/get-coins/:token", checkRequestSize, verifyToken, async (req, res) => 
       message: `You have received ${coinsToAdd} Coins.`,
       coins: coinsToAdd,
       timestamp: Date.now(),
+      coinsnext: coinsdata.next,
     });
 
   } catch (error) {
@@ -1548,6 +1551,7 @@ app.get("/get-user-inventory/:token", checkRequestSize, verifyToken, async (req,
       season_coins,
       bonusitem_damage,
       last_collected: userRow.last_collected || 0,
+      coinsnext: userRow.coinsnext || 0,
       equipped_item: userRow.equipped_item || 0,
       equipped_item2: userRow.equipped_item2 || 0,
       equipped_banner: userRow.equipped_banner || 0,
