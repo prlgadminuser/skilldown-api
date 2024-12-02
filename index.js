@@ -1566,6 +1566,7 @@ app.get("/get-user-inventory/:token", checkRequestSize, verifyToken, async (req,
       season_end: configrow.season_end,
       onetimereward,
       boxrarities: rarityPercentages,
+      bptiers: battlePassTiers,
     };
 
     // Send JSON response
