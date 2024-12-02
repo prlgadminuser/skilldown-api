@@ -837,7 +837,7 @@ app.get("/get-coins/:token", checkRequestSize, verifyToken, async (req, res) => 
     // Check if the user exists in the database
     const user = await userCollection.findOne(
       { username },
-      { projection: { _id: 0, username: 1, last_collected: 1, coinsnext: 1 } },
+      { projection: { _id: 0, username: 1, last_collected: 1 } },
       { session }
     );
 
@@ -848,10 +848,9 @@ app.get("/get-coins/:token", checkRequestSize, verifyToken, async (req, res) => 
     }
 
     // Check if enough time has passed since the last coin collection
-    const lastCollected = user.last_collected || 0;
-    const nextcount = user.coinsnext || 0;
+    const lastCollected = user.last_collected;
 
-    if (lastCollected + nextcount < Date.now()) {
+    if (!canCollectCoins(lastCollected)) {
       await session.abortTransaction();
       res.status(400).send("You can collect coins only once every 24 hours.");
       return;
@@ -859,7 +858,7 @@ app.get("/get-coins/:token", checkRequestSize, verifyToken, async (req, res) => 
 
      const coinsdata = await shopcollection.findOne(
       { _id: "dailyrewardconfig" },
-       { projection: { coinsmin: 1, coinsmax: 1, next: 1 } },
+       { projection: { coinsmin: 1, coinsmax: 1 } },
     );
 
 
@@ -871,7 +870,7 @@ app.get("/get-coins/:token", checkRequestSize, verifyToken, async (req, res) => 
       { username },
       {
         $inc: { coins: coinsToAdd },
-        $set: { last_collected: Date.now(), coinsnext: coinsdata.next },
+        $set: { last_collected: Date.now() },
       },
       { session }
     );
@@ -887,7 +886,6 @@ app.get("/get-coins/:token", checkRequestSize, verifyToken, async (req, res) => 
       message: `You have received ${coinsToAdd} Coins.`,
       coins: coinsToAdd,
       timestamp: Date.now(),
-      coinsnext: coinsdata.next,
     });
 
   } catch (error) {
@@ -902,6 +900,7 @@ app.get("/get-coins/:token", checkRequestSize, verifyToken, async (req, res) => 
     await session.endSession();
   }
 });
+
 
 
 // Route zum Abrufen der aktuellen Tagesrotation
