@@ -871,8 +871,7 @@ app.get("/get-coins/:token", checkRequestSize, verifyToken, async (req, res) => 
       { username },
       {
         $inc: { coins: coinsToAdd },
-        $set: { last_collected: Date.now() },
-        $set: { coinsnext: coinsdata.next },
+        $set: { last_collected: Date.now(), coinsnext: coinsdata.next },
       },
       { session }
     );
