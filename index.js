@@ -594,8 +594,8 @@ const battlePassCollection = db.collection("battlepass_users");
 const loginRewardsCollection = db.collection("onetime_rewards");
 const shopcollection = db.collection("serverconfig");
 
-const nicknameRegex = /^(?!.*(&[a-zA-Z0-9]+;|<|>|\/|\\| {2,}))(?!^\s)(?!.*\s$)(?!.*\s{2,}).{4,16}$/u;
-const usernameRegex = /^(?!.*(&[a-zA-Z0-9]+;|<|>|\/|\\|\s)).{4,16}$/u;
+const nicknameRegex = /^(?!.*(&[a-zA-Z0-9]+;|<|>|\/|\\| {2,}|:))(?!^\s)(?!.*\s$)(?!.*\s{2,}).{4,16}$/u;
+const usernameRegex = /^(?!.*(&[a-zA-Z0-9]+;|<|>|\/|\\|\s|:)).{4,16}$/u;
 const passwordRegex = /^(?!.*(&[a-zA-Z0-9]+;|<|>|\/|\\|\s)).{4,20}$/u;
 
 //const usernameRegex = /^(?!.*(&[a-zA-Z0-9]+;|<|>|\/|\\|\s)).{4,16}$/u;
