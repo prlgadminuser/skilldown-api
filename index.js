@@ -1047,6 +1047,9 @@ app.post("/buy-item/:token/:offerKey", checkRequestSize, verifyToken, async (req
       ? selectedOffer.itemId
       : [selectedOffer.itemId];
 
+    // Get the currency field from the offer
+    const { currency = "coins" } = selectedOffer; // Default to "coins" if currency is not specified
+
     // Check if the user already owns any item in the offer
     const user = await userCollection.findOne(
       {
@@ -1060,10 +1063,10 @@ app.post("/buy-item/:token/:offerKey", checkRequestSize, verifyToken, async (req
       return res.status(401).json({ message: "You already own an item from this offer." });
     }
 
-    // Fetch the user's coin balance
+    // Fetch the user's balance for the specified currency
     const userRow = await userCollection.findOne(
       { username },
-      { projection: { coins: 1 } }
+      { projection: { [currency]: 1 } } // Dynamically fetch the user's balance in the specified currency
     );
 
     if (!userRow) {
@@ -1071,21 +1074,18 @@ app.post("/buy-item/:token/:offerKey", checkRequestSize, verifyToken, async (req
       return res.status(404).json({ message: "User not found." });
     }
 
-    // Check if the user has enough coins to buy the offer
+    // Check if the user has enough balance to buy the offer
     const price = parseInt(selectedOffer.price, 10); // Ensure price is a number
-    if ((userRow.coins || 0) < price) {
+    if ((userRow[currency] || 0) < price) {
       await session.abortTransaction();
-      return res.status(401).json({ message: "Not enough coins to buy the offer." });
+      return res.status(401).json({ message: `Not enough ${currency} to buy the offer.` });
     }
 
-    // Deduct coins and add items to user's inventory in a single update operation
-
-     const updateFields = {
-      ...(price > 0 ? { $inc: { coins: -price } } : {}),
+    // Deduct currency and add items to user's inventory in a single update operation
+    const updateFields = {
+      ...(price > 0 ? { $inc: { [currency]: -price } } : {}), // Deduct the correct currency
       $addToSet: { items: { $each: itemIds } },
     };
-
-
 
     await userCollection.updateOne({ username }, updateFields, { session });
 
@@ -1093,7 +1093,7 @@ app.post("/buy-item/:token/:offerKey", checkRequestSize, verifyToken, async (req
     await session.commitTransaction();
 
     res.json({
-      message: `You have purchased ${selectedOffer.offertext}.`,
+      message: `You have purchased ${selectedOffer.offertext} using ${currency}.`,
     });
 
   } catch (error) {
@@ -1112,7 +1112,6 @@ app.post("/buy-item/:token/:offerKey", checkRequestSize, verifyToken, async (req
     }
   }
 });
-
 
 
 
