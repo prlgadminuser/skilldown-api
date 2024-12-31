@@ -336,7 +336,7 @@ const allowedOrigins = [
   "https://liquemgames.itch.io/sr",
   "http://liquemgames.itch.io/sr",
    "https://turbowarp.org",
-   "https://s-ri0p-delgae.netlify.app",
+   "https://skilldown.netlify.app",
 ];
 
 
