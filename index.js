@@ -1042,13 +1042,14 @@ app.post("/buy-item/:token/:offerKey", checkRequestSize, verifyToken, async (req
       return res.status(400).json({ message: "Offer is not valid." });
     }
 
+    // Get the currency field from the offer
+    const { currency = "coins" } = selectedOffer; // Default to "coins" if currency is not specified
+    const { quantity = 1 } = selectedOffer; // Get the quantity if it's specified
+
     // Normalize itemIds to an array (handle single or bundled items)
     const itemIds = Array.isArray(selectedOffer.itemId)
       ? selectedOffer.itemId
       : [selectedOffer.itemId];
-
-    // Get the currency field from the offer
-    const { currency = "coins" } = selectedOffer; // Default to "coins" if currency is not specified
 
     // Check if the user already owns any item in the offer
     const user = await userCollection.findOne(
@@ -1081,12 +1082,42 @@ app.post("/buy-item/:token/:offerKey", checkRequestSize, verifyToken, async (req
       return res.status(401).json({ message: `Not enough ${currency} to buy the offer.` });
     }
 
-    // Deduct currency and add items to user's inventory in a single update operation
-    const updateFields = {
+    // Check if it's a normal item, box purchase, or season coin pack
+    const isItemPurchase = !selectedOffer.id.includes("Box") && !selectedOffer.id.includes("Season Coin");
+    const isBoxPurchase = selectedOffer.id.includes("Box");
+    const isSeasonCoinPack = selectedOffer.id.includes("Season Coin");
+
+    let updateFields = {
       ...(price > 0 ? { $inc: { [currency]: -price } } : {}), // Deduct the correct currency
-      $addToSet: { items: { $each: itemIds } },
     };
 
+    // Handle normal item purchase
+    if (isItemPurchase) {
+      updateFields = {
+        $inc: { [currency]: -price }, // Deduct the price for the item
+        $addToSet: { items: { $each: itemIds } }, // Add the normal item(s)
+      };
+    }
+
+    // Handle box purchases
+    if (isBoxPurchase) {
+      // For box purchases, we increment the 'boxes' field by quantity
+      updateFields = {
+        $inc: { [currency]: -price },
+        $inc: { boxes: quantity }, // Increment the 'boxes' field by the quantity
+      };
+    }
+
+    // Handle season coin pack purchases
+    if (isSeasonCoinPack) {
+      // For season coin packs, we increment the 'seasonCoins' field by quantity
+      updateFields = {
+        $inc: { [currency]: -price },
+        $inc: { seasonCoins: quantity }, // Increment the 'seasonCoins' field by the quantity
+      };
+    }
+
+    // Deduct currency and update the user's inventory or purchase quantity in a single update operation
     await userCollection.updateOne({ username }, updateFields, { session });
 
     // Commit the transaction after a successful update
@@ -1112,6 +1143,7 @@ app.post("/buy-item/:token/:offerKey", checkRequestSize, verifyToken, async (req
     }
   }
 });
+
 
 
 
