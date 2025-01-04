@@ -1083,9 +1083,9 @@ app.post("/buy-item/:token/:offerKey", checkRequestSize, verifyToken, async (req
     }
 
     // Check if it's a normal item, box purchase, or season coin pack
-    const isItemPurchase = !selectedOffer.id.includes("Box") && !selectedOffer.id.includes("Season Coin");
-    const isBoxPurchase = selectedOffer.id.includes("Box");
-    const isSeasonCoinPack = selectedOffer.id.includes("Season Coin");
+    const isItemPurchase = !selectedOffer.itemId.includes("box") && !selectedOffer.itemId.includes("seasoncoins");
+    const isBoxPurchase = selectedOffer.itemId.includes("box");
+    const isSeasonCoinPack = selectedOffer.itemId.includes("seasoncoins");
 
     let updateFields = {
       ...(price > 0 ? { $inc: { [currency]: -price } } : {}), // Deduct the correct currency
