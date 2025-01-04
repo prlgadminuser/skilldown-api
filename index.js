@@ -1087,33 +1087,34 @@ app.post("/buy-item/:token/:offerKey", checkRequestSize, verifyToken, async (req
     const isBoxPurchase = selectedOffer.itemId.includes("box");
     const isSeasonCoinPack = selectedOffer.itemId.includes("seasoncoins");
 
-    let updateFields = {
-      ...(price > 0 ? { $inc: { [currency]: -price } } : {}), // Deduct the correct currency
-    };
+    let updateFields = {};
 
     // Handle normal item purchase
     if (isItemPurchase) {
       updateFields = {
-        $inc: { [currency]: -price }, // Deduct the price for the item
         $addToSet: { items: { $each: itemIds } }, // Add the normal item(s)
       };
     }
 
     // Handle box purchases
     if (isBoxPurchase) {
-      // For box purchases, we increment the 'boxes' field by quantity
       updateFields = {
-        $inc: { [currency]: -price },
         $inc: { boxes: quantity }, // Increment the 'boxes' field by the quantity
       };
     }
 
     // Handle season coin pack purchases
     if (isSeasonCoinPack) {
-      // For season coin packs, we increment the 'seasonCoins' field by quantity
       updateFields = {
-        $inc: { [currency]: -price },
         $inc: { seasonCoins: quantity }, // Increment the 'seasonCoins' field by the quantity
+      };
+    }
+
+    // Only deduct currency if the price is greater than zero
+    if (price > 0) {
+      updateFields = {
+        ...updateFields,
+        $inc: { [currency]: -price }, // Deduct the correct currency
       };
     }
 
